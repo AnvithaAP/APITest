@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import pytest
-from pytest_bdd import given, parsers, scenario, then, when
+
+pytest_bdd = pytest.importorskip("pytest_bdd")
+given = pytest_bdd.given
+parsers = pytest_bdd.parsers
+scenario = pytest_bdd.scenario
+then = pytest_bdd.then
+when = pytest_bdd.when
 
 
 @pytest.mark.tag(

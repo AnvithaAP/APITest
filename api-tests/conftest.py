@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+import re
 
 import pytest
 
@@ -43,13 +44,64 @@ class ResultCollector:
 
 collector = ResultCollector()
 
+_TAG_PREFIXES = {"scope", "intent", "concern", "type", "module", "release"}
+_BDD_ALIAS_MAP = {
+    "api": "scope=api",
+    "ui": "scope=ui",
+    "e2e": "scope=e2e",
+    "device": "scope=device",
+    "functional": "intent=functional",
+    "performance": "intent=performance",
+    "governance": "intent=governance",
+    "reliability": "intent=reliability",
+    "smoke": "type=smoke",
+    "sanity": "type=sanity",
+    "regression": "type=regression",
+    "system": "type=system",
+    "load": "type=load",
+    "compliance": "type=compliance",
+    "standard": "type=standard",
+}
+
+
+def _normalize_bdd_tag(token: str) -> str | None:
+    cleaned = token.strip().lstrip("@").lower()
+    if not cleaned:
+        return None
+
+    if cleaned in _BDD_ALIAS_MAP:
+        return _BDD_ALIAS_MAP[cleaned]
+
+    for sep in (":", "="):
+        if sep in cleaned:
+            key, value = cleaned.split(sep, 1)
+            if key in _TAG_PREFIXES and value:
+                return f"{key}={value}"
+            return None
+
+    underscore = re.match(r"^(scope|intent|concern|type|module|release)_(.+)$", cleaned)
+    if underscore:
+        return f"{underscore.group(1)}={underscore.group(2)}"
+    return None
+
+
+def _infer_tags_from_keywords(item: pytest.Item) -> dict[str, str]:
+    inferred: dict[str, str] = {}
+    for keyword in item.keywords.keys():
+        normalized = _normalize_bdd_tag(keyword)
+        if not normalized:
+            continue
+        key, value = normalized.split("=", 1)
+        inferred.setdefault(key, value)
+    return inferred
+
 
 def _extract_item_tags(item: pytest.Item) -> dict[str, str]:
     tag_marks = [m for m in item.iter_markers(name="tag")]
-    if not tag_marks:
-        return {}
-    tags, _ = parse_tag_entries(tuple(tag_marks[0].args))
-    return tags
+    if tag_marks:
+        tags, _ = parse_tag_entries(tuple(tag_marks[0].args))
+        return tags
+    return _infer_tags_from_keywords(item)
 
 
 def _validate_atomic_tests(items: list[pytest.Item]) -> list[str]:
@@ -93,6 +145,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        if list(item.iter_markers(name="tag")):
+            continue
+        inferred = _infer_tags_from_keywords(item)
+        if inferred:
+            item.add_marker(pytest.mark.tag(*(f"{k}={v}" for k, v in sorted(inferred.items()))))
+
     guard = TagGuard()
     errors = guard.validate_pytest_items(items)
     errors.extend(_validate_atomic_tests(items))
