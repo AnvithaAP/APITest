@@ -79,3 +79,54 @@ python integrations/ado_client.py --aggregated artifacts/aggregated_canonical.js
 - Host frontend (`dashboard/frontend/index.html`) on static host (S3 + CloudFront / GitLab Pages / internal nginx).
 - Publish backend (`uvicorn dashboard.backend:app`) behind API gateway/ingress.
 - Set CORS allow-list to dashboard domain and pin HTTPS certificates.
+
+
+## New Governance + Execution Additions
+
+### Tag governance guardrails
+- `tagging/tag_governance.py` enforces required tags and validates both pytest markers and BDD feature tags.
+- Prevents unqueryable or malformed test additions before they scale into suites.
+
+Run:
+```bash
+python tagging/tag_governance.py functional performance governance
+```
+
+### Execution engine (dry-run + parallel + atomic + portability)
+- `orchestrator/execution_engine.py` adds a single command interface for:
+  - dry-run collection
+  - threaded parallel execution
+  - atomic (single-test unit) execution
+  - portability mode (`local`, `docker`, `k8s`, `gitlab`)
+
+Run:
+```bash
+python orchestrator/execution_engine.py --query "scope=api AND intent=functional" --dry-run
+python orchestrator/execution_engine.py --query "scope=api" --parallel 8 --atomic
+python orchestrator/execution_engine.py --query "intent=performance" --runner gitlab --parallel 5
+```
+
+### BDD structure
+Framework now includes:
+
+```text
+functional/
+  features/
+  steps/
+  data/
+performance/
+  latency/
+  capacity/
+```
+
+- add `.feature` files in `functional/features/`
+- add step definitions in `functional/steps/`
+- enforce cross-suite queryability through standard tags
+
+### Infra setup playbooks
+See `deployment/` for:
+- Kubernetes setup
+- GitLab runner setup
+- Azure DevOps PAT/project wiring
+- AWS IAM role assignment
+- dashboard domain hosting
