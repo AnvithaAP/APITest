@@ -9,7 +9,6 @@ if str(ROOT) not in sys.path:
 
 import argparse
 import subprocess
-import sys
 
 
 def main() -> int:
@@ -17,10 +16,19 @@ def main() -> int:
     parser.add_argument("--runner", choices=["pytest", "k6", "gatling"], required=True)
     parser.add_argument("--query", default="")
     parser.add_argument("--script", default="")
+    parser.add_argument("--parallel", type=int, default=0)
+    parser.add_argument("--retries", type=int, default=0)
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     if args.runner == "pytest":
         cmd = [sys.executable, "runners/pytest_runner.py", "--query", args.query]
+        if args.parallel > 0:
+            cmd.extend(["--parallel", str(args.parallel)])
+        if args.retries > 0:
+            cmd.extend(["--retries", str(args.retries)])
+        if args.dry_run:
+            cmd.append("--dry-run")
     elif args.runner == "k6":
         cmd = [sys.executable, "runners/k6_runner.py", "--query", args.query, "--script", args.script]
     else:

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from tagging.tag_guard import TagGuard
+from tagging.tag_parser import matches_query, parse_query, parse_tag_entries
 
 
 class ResultCollector:
@@ -18,12 +19,14 @@ class ResultCollector:
         rep = outcome.get_result()
         if rep.when != "call":
             return
+        tags = _extract_item_tags(item)
         self.tests.append(
             {
                 "nodeid": item.nodeid,
                 "outcome": rep.outcome,
                 "call": {"duration": rep.duration},
                 "keywords": {k: True for k in item.keywords.keys()},
+                "tags": tags,
             }
         )
 
@@ -40,6 +43,18 @@ class ResultCollector:
 collector = ResultCollector()
 
 
+def _extract_item_tags(item: pytest.Item) -> dict[str, str]:
+    tag_marks = [m for m in item.iter_markers(name="tag")]
+    if not tag_marks:
+        return {}
+    tags, _ = parse_tag_entries(tuple(tag_marks[0].args))
+    return tags
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--tag-query", action="store", default="", help="Tag query format: key=v1,v2 AND key2=v")
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.pluginmanager.register(collector, "result-collector")
 
@@ -50,3 +65,21 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
     if errors:
         formatted = "\n".join(f"- {e}" for e in errors)
         raise pytest.UsageError(f"Tag guard validation failed:\n{formatted}")
+
+    query = config.getoption("--tag-query")
+    filters = parse_query(query)
+    if not filters:
+        return
+
+    selected: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        tags = _extract_item_tags(item)
+        if matches_query(tags, filters):
+            selected.append(item)
+        else:
+            deselected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = selected

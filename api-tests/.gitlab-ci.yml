@@ -5,13 +5,15 @@ stages:
 
 variables:
   TAG_QUERY: "scope=api AND intent=functional"
+  PYTEST_PARALLEL: "2"
+  PYTEST_RETRIES: "1"
 
 validate_tags:
   stage: validate
   image: python:3.11
   script:
     - pip install -r requirements.txt
-    - python -m pytest functional governance --collect-only
+    - python runners/pytest_runner.py --query "$TAG_QUERY" --dry-run
 
 run_functional:
   stage: test
