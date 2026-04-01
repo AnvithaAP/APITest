@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tagging.tag_parser import parse_query
+from tagging.tag_parser import compile_query_expression, parse_query
 
 
 def build_pytest_tag_filter(query: str) -> str:
@@ -20,7 +20,8 @@ def build_pytest_tag_filter(query: str) -> str:
 
 
 def query_to_marker_expression(query: str) -> str:
-    filters = parse_query(query)
-    if not filters:
+    # broad pre-filter; final filtering is tag-aware in runner using query engine.
+    if not query:
         return ""
+
     return "tag"

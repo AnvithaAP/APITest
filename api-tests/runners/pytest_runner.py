@@ -15,31 +15,16 @@ from history.html_trend_report import render_trend_html
 from history.sqlite_manager import SQLiteManager
 from reporting.canonical_formatter import build_canonical_report, write_canonical_report
 from reporting.html_report import render_html_report
-from tagging.tag_parser import parse_query
+from tagging.tag_parser import compile_query_expression, evaluate_query_expression
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--query", default="")
-    parser.add_argument("--parallel", type=int, default=0)
-    parser.add_argument("--retries", type=int, default=0)
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--repo", default="api-tests")
+
     args = parser.parse_args()
 
     report_path = Path("artifacts/pytest_report.json")
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [sys.executable, "-m", "pytest", "functional", "governance", f"--tag-query={args.query}"]
 
-    if args.dry_run:
-        cmd.append("--collect-only")
-
-    if args.parallel > 0:
-        cmd.extend(["-n", str(args.parallel)])
-
-    if args.retries > 0:
-        cmd.extend(["--reruns", str(args.retries)])
 
     rc = subprocess.call(cmd)
 
@@ -47,9 +32,7 @@ def main() -> int:
         return rc
 
     raw = json.loads(report_path.read_text(encoding="utf-8"))
-    query_tags = parse_query(args.query)
 
-    canonical = build_canonical_report(raw, args.query, query_tags, source_repo=args.repo)
     write_canonical_report(canonical)
     render_html_report(canonical)
 

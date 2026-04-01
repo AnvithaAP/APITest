@@ -1,33 +1,32 @@
 stages:
   - validate
   - test
+  - performance
   - report
 
 variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   TAG_QUERY: "scope=api AND intent=functional"
-  PYTEST_PARALLEL: "2"
-  PYTEST_RETRIES: "1"
+
 
 validate_tags:
   stage: validate
-  image: python:3.11
+  extends: .default_python
   script:
-    - pip install -r requirements.txt
-    - python runners/pytest_runner.py --query "$TAG_QUERY" --dry-run
+
 
 run_functional:
   stage: test
-  image: python:3.11
+  extends: .default_python
   script:
-    - pip install -r requirements.txt
-    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY"
+    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY" --tag-guard-mode strict
   artifacts:
     when: always
     paths:
       - artifacts/
 
-run_performance:
-  stage: test
+run_k6:
+  stage: performance
   image: grafana/k6:latest
   script:
     - k6 run performance/latency/k6_latency.js
@@ -36,9 +35,9 @@ run_performance:
     paths:
       - artifacts/
 
-publish_reports:
+aggregate_reports:
   stage: report
-  image: python:3.11
+  extends: .default_python
   script:
     - python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
   artifacts:
