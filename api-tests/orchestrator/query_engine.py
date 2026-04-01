@@ -18,17 +18,19 @@ class ParsedQuery:
 _TOKEN_RE = re.compile(r"\(|\)|\bAND\b|\bOR\b|[^\s()]+", re.IGNORECASE)
 
 
+TAG_INHERITANCE = {
+    "scope": {
+        "e2e": ["ui", "api"],
+        "device": ["api"],
+    },
+    "intent": {
+        "reliability": ["functional"],
+    },
+}
+
+
 def parse_query(query: str) -> ParsedQuery:
-    """Parse a query into disjunctive-normal-form OR groups containing AND clauses.
-
-    Supports:
-    - key=value
-    - key=value1,value2
-    - parentheses and precedence (AND > OR)
-
-    Example:
-      scope=api AND (intent=functional OR intent=performance)
-    """
+    """Parse query with parenthesized AND/OR support into DNF groups."""
     if not query or not query.strip():
         return ParsedQuery(groups=[])
 
@@ -37,6 +39,27 @@ def parse_query(query: str) -> ParsedQuery:
     if idx != len(tokens):
         raise ValueError(f"Unexpected token '{tokens[idx]}'")
     return ParsedQuery(groups=groups)
+
+
+def parse_ui_selections(filters: dict[str, list[str]], group_operator: str = "AND") -> ParsedQuery:
+    """Convert multi-select UI filters to query groups.
+
+    - AND mode: every key must match any selected value in that key.
+    - OR mode: any key/value pair can match.
+    """
+    normalized = {k: [v for v in values if v] for k, values in filters.items() if values}
+    if not normalized:
+        return ParsedQuery(groups=[])
+
+    if group_operator.upper() == "OR":
+        groups: list[list[QueryClause]] = []
+        for key, values in normalized.items():
+            for value in values:
+                groups.append([QueryClause(key=key, values=[value])])
+        return ParsedQuery(groups=groups)
+
+    clauses = [QueryClause(key=key, values=values) for key, values in normalized.items()]
+    return ParsedQuery(groups=[clauses])
 
 
 def flatten_query(parsed: ParsedQuery) -> dict[str, list[str]]:
@@ -62,9 +85,25 @@ def _matches_all_clauses(tags: dict[str, str], clauses: list[QueryClause]) -> bo
         actual_values = {v.strip().lower() for v in re.split(r"[|;,]", actual_raw) if v.strip()}
         if not actual_values:
             return False
-        if actual_values.isdisjoint({v.lower() for v in clause.values}):
+
+        expanded_actual = set(actual_values)
+        expanded_expected = {v.lower() for v in clause.values}
+
+        if clause.key in TAG_INHERITANCE:
+            expanded_actual |= _expand_inheritance(clause.key, actual_values)
+            expanded_expected |= _expand_inheritance(clause.key, expanded_expected)
+
+        if expanded_actual.isdisjoint(expanded_expected):
             return False
     return True
+
+
+def _expand_inheritance(key: str, values: set[str]) -> set[str]:
+    inherited: set[str] = set()
+    relationships = TAG_INHERITANCE.get(key, {})
+    for value in values:
+        inherited.update(relationships.get(value, []))
+    return inherited
 
 
 def _tokenize(query: str) -> list[str]:
