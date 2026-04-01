@@ -1,0 +1,6 @@
+users:
+  list: /users
+  detail: /users/{id}
+posts:
+  list: /posts
+  detail: /posts/{id}
