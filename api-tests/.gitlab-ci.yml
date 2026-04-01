@@ -1,6 +1,6 @@
 stages:
+  - validate
   - orchestrate
-  - deploy
   - test
   - report
 
@@ -10,6 +10,12 @@ variables:
 before_script:
   - python --version
   - pip install -r requirements.txt
+
+validate_governance:
+  stage: validate
+  script:
+    - python tagging/tag_governance.py functional performance governance
+    - pytest --collect-only -q
 
 orchestrate_multi_repo:
   stage: orchestrate
@@ -22,16 +28,10 @@ orchestrate_multi_repo:
       - artifacts/aggregated_canonical.json
       - artifacts/gitlab_pipeline_triggers.json
 
-deploy_orchestration_backend:
-  stage: deploy
-  script:
-    - python -c "import dashboard.backend as b; print(b.health())"
-
-
-test_local_suite:
+test_parallel_suite:
   stage: test
   script:
-    - python runners/pytest_runner.py --query "scope=api AND intent=functional"
+    - pytest -n auto -q
     - python runners/distributed_runner.py --execution-mode local --query "scope=api"
   artifacts:
     when: always
