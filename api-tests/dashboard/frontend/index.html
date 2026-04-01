@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API Test Live Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; background: #0f172a; color: #e2e8f0; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      canvas { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Live API Test Metrics</h1>
+    <p id="status">Loading live data…</p>
+    <div class="grid">
+      <canvas id="latencyChart"></canvas>
+      <canvas id="throughputChart"></canvas>
+    </div>
+
+    <script>
+      const apiBase = window.API_BASE || 'http://localhost:8080';
+
+      const latencyChart = new Chart(document.getElementById('latencyChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Latency avg (ms)', data: [], borderColor: '#60a5fa' }] },
+        options: { responsive: true }
+      });
+
+      const throughputChart = new Chart(document.getElementById('throughputChart'), {
+        type: 'bar',
+        data: { labels: [], datasets: [{ label: 'Throughput avg', data: [], backgroundColor: '#34d399' }] },
+        options: { responsive: true }
+      });
+
+      async function pullMetrics() {
+        const response = await fetch(`${apiBase}/metrics`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      }
+
+      async function refresh() {
+        try {
+          const payload = await pullMetrics();
+          const points = payload.timeline || [];
+
+          const labels = points.map(p => p.timestamp);
+          latencyChart.data.labels = labels;
+          latencyChart.data.datasets[0].data = points.map(p => p.latency_avg_ms || 0);
+          latencyChart.update();
+
+          throughputChart.data.labels = labels;
+          throughputChart.data.datasets[0].data = points.map(p => p.throughput_avg || 0);
+          throughputChart.update();
+
+          document.getElementById('status').textContent = `Live data bound. Samples: ${points.length}`;
+        } catch (err) {
+          document.getElementById('status').textContent = `Failed to load metrics: ${err.message}`;
+        }
+      }
+
+      refresh();
+      setInterval(refresh, 10000);
+    </script>
+  </body>
+</html>
