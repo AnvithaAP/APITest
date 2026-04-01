@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 from dashboard.dashboard import render_dashboard
-from integrations.ado_client import write_ado_submission
+from integrations.ado_client import push_ado_submission, write_ado_submission
 from orchestrator.gitlab_orchestrator import GitLabOrchestrator, load_targets
 from reporting.aggregator_client import merge_canonical_reports
 
@@ -25,6 +25,10 @@ def main() -> int:
     parser.add_argument("--aggregate-out", default="artifacts/aggregated_canonical.json")
     parser.add_argument("--dashboard-out", default="artifacts/dashboard.html")
     parser.add_argument("--ado-out", default="artifacts/ado_submission.json")
+    parser.add_argument("--ado-push", action="store_true")
+    parser.add_argument("--ado-org-url", default="")
+    parser.add_argument("--ado-project", default="")
+    parser.add_argument("--ado-token", default="")
     args = parser.parse_args()
 
     rc = 0
@@ -65,6 +69,9 @@ def main() -> int:
     if Path(args.aggregate_out).exists():
         render_dashboard(args.aggregate_out, args.dashboard_out)
         write_ado_submission(args.aggregate_out, args.ado_out)
+        if args.ado_push and args.ado_org_url and args.ado_project and args.ado_token:
+            push_result = push_ado_submission(args.ado_out, args.ado_org_url, args.ado_project, args.ado_token)
+            Path("artifacts/ado_push_result.json").write_text(json.dumps(push_result, indent=2), encoding="utf-8")
 
     return rc
 

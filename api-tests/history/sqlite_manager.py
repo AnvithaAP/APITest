@@ -51,6 +51,41 @@ class SQLiteManager:
         with self.connect() as conn:
             return conn.execute("SELECT run_id,timestamp,api_name,latency,error_rate,throughput FROM run_metrics ORDER BY id").fetchall()
 
+    def get_recent_runs(self, limit: int = 50) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT run_id,timestamp,api_name,scope,latency,error_rate,throughput FROM run_metrics ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "run_id": r[0],
+                "timestamp": r[1],
+                "api_name": r[2],
+                "scope": r[3],
+                "latency": r[4],
+                "error_rate": r[5],
+                "throughput": r[6],
+            }
+            for r in rows
+        ]
+
+    def get_timeline(self) -> list[dict]:
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT timestamp, AVG(latency), AVG(error_rate), AVG(throughput), COUNT(*) FROM run_metrics GROUP BY timestamp ORDER BY timestamp"
+            ).fetchall()
+        return [
+            {
+                "timestamp": r[0],
+                "latency_avg_ms": round(r[1] or 0, 3),
+                "error_rate_avg": round(r[2] or 0, 5),
+                "throughput_avg": round(r[3] or 0, 3),
+                "sample_size": r[4],
+            }
+            for r in rows
+        ]
+
     def _ensure_columns(self, conn: sqlite3.Connection) -> None:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(run_metrics)").fetchall()}
         if "scope" not in columns:

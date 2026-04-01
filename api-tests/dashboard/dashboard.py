@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 
 
+TAG_QUERY_FIELDS = ["scope", "intent", "concern", "type", "module"]
+
+
 def _try_render_matplotlib_charts(aggregated_payload: dict, output_path: Path) -> str:
     try:
         import matplotlib.pyplot as plt
@@ -32,6 +35,41 @@ def _try_render_matplotlib_charts(aggregated_payload: dict, output_path: Path) -
     return png_path.name
 
 
+def _tag_query_ui() -> str:
+    inputs = "\n".join(
+        f"<label>{field}<input id='tag-{field}' placeholder='{field}=value[,value]'/></label>"
+        for field in TAG_QUERY_FIELDS
+    )
+    return f"""
+  <h2>Tag Query Builder</h2>
+  <div id='tagBuilder'>
+    {inputs}
+    <label>operator
+      <select id='tag-operator'>
+        <option value='AND'>AND</option>
+        <option value='OR'>OR</option>
+      </select>
+    </label>
+    <button onclick='buildTagQuery()'>Build Query</button>
+    <code id='queryOut'></code>
+  </div>
+  <script>
+    function buildTagQuery() {{
+      const keys = {json.dumps(TAG_QUERY_FIELDS)};
+      const operator = document.getElementById('tag-operator').value;
+      const parts = [];
+      for (const key of keys) {{
+        const value = document.getElementById(`tag-${{key}}`).value.trim();
+        if (!value) continue;
+        if (value.includes('=')) parts.push(value);
+        else parts.push(`${{key}}=${{value}}`);
+      }}
+      document.getElementById('queryOut').textContent = parts.join(` ${{operator}} `);
+    }}
+  </script>
+"""
+
+
 def build_dashboard_html(aggregated_payload: dict) -> str:
     dashboard = aggregated_payload.get("dashboard", {})
     kpis = dashboard.get("kpis", {})
@@ -55,6 +93,8 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
     body {{ font-family: Arial, sans-serif; margin: 20px; }}
     .kpi {{ display: inline-block; border: 1px solid #ddd; padding: 12px; margin-right: 8px; min-width: 150px; }}
     #charts {{ display: grid; grid-template-columns: 1fr; gap: 20px; }}
+    #tagBuilder {{ display: grid; gap: 8px; max-width: 600px; margin-bottom: 20px; }}
+    #tagBuilder input, #tagBuilder select {{ margin-left: 8px; }}
   </style>
 </head>
 <body>
@@ -66,6 +106,8 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
     <div class='kpi'><b>Pass Rate</b><br/>{kpis.get('pass_rate', 0)}</div>
     <div class='kpi'><b>Release Readiness</b><br/>{release.get('status', 'unknown')}</div>
   </div>
+
+  {_tag_query_ui()}
 
   <h2>Release Readiness View</h2>
   <p>Gate: {release.get('status', 'unknown')} | Failure budget used: {release.get('failure_budget_used_pct', 0)}%</p>

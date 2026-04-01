@@ -1,5 +1,6 @@
 stages:
   - orchestrate
+  - deploy
   - test
   - report
 
@@ -21,22 +22,31 @@ orchestrate_multi_repo:
       - artifacts/aggregated_canonical.json
       - artifacts/gitlab_pipeline_triggers.json
 
+deploy_orchestration_backend:
+  stage: deploy
+  script:
+    - python -c "import dashboard.backend as b; print(b.health())"
+
+
 test_local_suite:
   stage: test
   script:
     - python runners/pytest_runner.py --query "scope=api AND intent=functional"
+    - python runners/distributed_runner.py --execution-mode local --query "scope=api"
   artifacts:
     when: always
     paths:
       - artifacts/canonical_run.json
       - artifacts/allure-results
       - artifacts/pytest_report.json
+      - artifacts/distributed_execution.json
+      - artifacts/k8s_jobs.json
 
 publish_reporting:
   stage: report
   script:
     - python dashboard/dashboard.py --aggregated artifacts/aggregated_canonical.json --out artifacts/dashboard.html
-    - python -c "from integrations.ado_client import write_ado_submission; write_ado_submission('artifacts/aggregated_canonical.json', 'artifacts/ado_submission.json')"
+    - python integrations/ado_client.py --aggregated artifacts/aggregated_canonical.json --out artifacts/ado_submission.json
   artifacts:
     when: always
     paths:

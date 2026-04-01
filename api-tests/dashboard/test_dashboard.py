@@ -23,3 +23,10 @@ def test_dashboard_contains_chartjs_trend_sections() -> None:
     assert "chart.js" in html.lower()
     assert "Latency (ms)" in html
     assert "Release Readiness" in html
+
+
+@pytest.mark.tag("scope=ui", "intent=functional", "concern=auth", "type=smoke", "module=platform", "release=R2026.04-S7")
+def test_dashboard_contains_tag_query_builder_fields() -> None:
+    html = build_dashboard_html({"dashboard": {}})
+    for field in ["scope", "intent", "concern", "type", "module"]:
+        assert f"tag-{field}" in html
