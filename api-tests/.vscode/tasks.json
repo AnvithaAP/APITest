@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tag Guard: Validate",
+      "type": "shell",
+      "command": "python runners/pytest_runner.py --query \"scope=api\" --dry-run",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tag Guard: Auto-fix",
+      "type": "shell",
+      "command": "python tagging/tag_autofix.py functional governance",
+      "problemMatcher": []
+    }
+  ]
+}

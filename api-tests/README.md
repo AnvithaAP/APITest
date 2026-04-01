@@ -1,104 +1,105 @@
 # Enterprise API Testing Framework
 
-Modular API quality framework with two primary execution domains:
-- `functional/` for API functional + governance + contract quality.
-- `performance/` for API non-functional performance workloads.
+A production-oriented API quality platform with modular layers for **functional**, **performance**, and **governance** testing.
 
-## Core Design Goals
-- **Portable execution:** query + tag driven test selection in any runner.
-- **Strict governance:** hard validation of required tags at collection time.
-- **Standardized reporting:** canonical JSON payload for cross-repo aggregation.
-- **Local + CI visibility:** HTML + Allure + Extent-compatible canonical data.
-- **Historical analytics:** SQLite persistence + post-run trend HTML generation.
+## Delivered Capabilities
+- Full orchestrator with **single repo** and **multi-repo trigger** modes.
+- Tag query engine with **AND/OR** logic and comma value unions.
+- Strict `tag_guard` enforcement with **auto-fix** utilities.
+- Canonical reporting + HTML + Allure output and cross-repo aggregation.
+- SQLite-backed run history with trend graphs.
+- k6 and Gatling runner integrations.
+- Schema validation and backward-compatibility diff engine.
+- Governance engine for convention and standards checks.
+- Azure DevOps traceability payload generation hooks.
+- GitLab pipeline suitable for production bootstrap.
+- VSCode tasks/settings for tag enforcement workflows.
 
-## Folder Architecture
+## Modular Structure
 ```
 api-tests/
-  functional/           # pytest suites by concern
-  governance/           # API governance checks (headers/body/naming/consistency)
-  performance/          # k6 scripts by concern
-  schemas/              # request/response schemas + version contracts
-  tagging/              # tag parser/validator/guard + schema contract
-  runners/              # pytest, k6, gatling adapters
-  orchestrator/         # query router for local/remote runners
-  reporting/            # canonical + html + multi-repo aggregation
-  history/              # sqlite storage + trend html rendering
-  artifacts/            # generated outputs
+  functional/                # tagged API functional suites
+  governance/                # governance tests + engine
+  performance/               # k6 + gatling scripts
+  tagging/                   # parser, guard, validator, autofix
+  orchestrator/              # query engine + execution routers
+  reporting/                 # canonical, html, allure, aggregation
+  history/                   # sqlite metrics + trend graph html
+  core/validators/           # schema validation + diff engine
+  integrations/              # ADO traceability payload hooks
+  artifacts/                 # generated outputs
 ```
 
-## Mandatory Tag Contract (6 tags)
-All test cases must declare one `@pytest.mark.tag(...)` with:
-1. `scope=api`
-2. `intent=functional|performance|security|reliability`
-3. `concern=<context-aware by intent>`
-4. `type=<context-aware by intent>`
-5. `module=<product module>`
-6. `release=RYYYY.MM-SN` (example: `R2026.04-S7`)
+## Tagging (Enforced Entry Point)
+Every pytest test must carry one `@pytest.mark.tag(...)` marker with required keys:
+- `scope`, `intent`, `concern`, `type`, `module`, `release`
 
-Example:
-```python
-@pytest.mark.tag(
-    "scope=api",
-    "intent=functional",
-    "concern=contract",
-    "type=regression",
-    "module=users",
-    "release=R2026.04-S7"
-)
+Auto-fix invalid or missing tags:
+```bash
+python tagging/tag_autofix.py functional governance
 ```
 
-## Query-driven Execution (granular)
-Supports AND combinations and multi-value selectors:
-- `scope=api AND intent=functional AND type=regression`
-- `intent=functional AND module=users,orders AND release=R2026.04-S7`
+## Query Engine
+Examples:
+```bash
+# AND
+scope=api AND intent=functional AND type=regression
 
-Run functional/governance via router:
+# OR groups
+intent=functional AND module=users OR intent=performance AND concern=latency
+```
+
+## Orchestrator
+Run local orchestrator:
 ```bash
 python orchestrator/execution_router.py --runner pytest --query "scope=api AND intent=functional"
 ```
 
-Run with dry-run / parallel / retries:
+Run multi-repo orchestrator:
 ```bash
-python runners/pytest_runner.py --query "intent=functional" --dry-run
-python runners/pytest_runner.py --query "intent=functional AND type=regression" --parallel 4 --retries 2
+python orchestrator/execution_router.py --runner pytest --repos-file repos.json --query "scope=api"
 ```
 
-## Performance Execution
+`repos.json`:
+```json
+{
+  "repos": [
+    {"name": "repo-a", "path": "/workspace/repo-a", "query": "scope=api AND intent=functional"},
+    {"name": "repo-b", "path": "/workspace/repo-b", "query": "scope=api AND intent=performance"}
+  ]
+}
+```
+
+## Performance Layer
+k6:
 ```bash
-python runners/k6_runner.py --script performance/latency/k6_latency.js --query "intent=performance AND concern=latency"
+python runners/k6_runner.py --script performance/latency/k6_latency.js --query "intent=performance"
 ```
 
-## Reporting Standard
-Generated under `artifacts/`:
-- `pytest_report.json` raw run output.
-- `canonical_run.json` standardized run payload (schema v1.1).
-- `html_report.html` local summary.
-- `allure-results/` for Allure consumption.
-- `history.db` SQLite historical metrics.
-- `history_trends.html` table + trend graph snapshots.
-
-Cross-repo aggregation:
-```python
-from reporting.aggregator_client import merge_canonical_reports
-merge_canonical_reports([
-  "repoA/artifacts/canonical_run.json",
-  "repoB/artifacts/canonical_run.json"
-], "artifacts/aggregated_canonical.json")
+Gatling:
+```bash
+python runners/gatling_runner.py --simulation BasicSimulation --query "intent=performance"
 ```
 
-## ADO/GitLab Traceability Model
-Recommended mapping:
-- ADO PBI / Feature ID -> include in test metadata and node naming.
-- ADO Test Case Work Item ID -> include as structured test metadata.
-- Tag `module` + `release` + canonical `test_name` -> deterministic linkage to results.
-- Export canonical JSON to Azure DevOps dashboard pipeline for unified quality views.
+## Reporting + History
+Outputs under `artifacts/`:
+- `canonical_run.json`
+- `html_report.html`
+- `allure-results/`
+- `history.db`
+- `history_trends.html`
+- `ado_traceability.json`
 
-## Add New Tests Quickly
-1. Add file under correct concern in `functional/` or script in `performance/`.
-2. Apply required six-tag contract.
-3. Reuse shared clients/validators from `core/`.
-4. Add or version schemas under `schemas/`.
-5. Execute targeted query locally before CI.
+## Schema Validation + Diff
+```bash
+python core/validators/schema_diff_cli.py --old schemas/responses/user_v1.json --new schemas/versions/user_v2.json --strict
+```
 
-## GitLab CI
-Use `.gitlab-ci.yml` with `TAG_QUERY` and persist `artifacts/` as job artifacts for downstream aggregation/publishing.
+## GitLab Base Pipeline
+Use `.gitlab-ci.yml` to validate tags/schema, run functional + governance + perf, and publish canonical/history/ADO artifacts.
+
+## VSCode Integration
+- `Tag Guard: Validate`
+- `Tag Guard: Auto-fix`
+
+Configured under `.vscode/tasks.json` and `.vscode/settings.json`.
