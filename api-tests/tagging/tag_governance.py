@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -14,7 +15,6 @@ if str(ROOT) not in sys.path:
 from tagging.tag_parser import parse_tag_entries
 from tagging.tag_validator import REQUIRED_KEYS, validate_tags
 
-MARKER_RE = re.compile(r"@pytest\.mark\.tag\((?P<body>.*?)\)", re.S)
 FEATURE_TAG_RE = re.compile(r"^\s*@(?P<tag>[A-Za-z0-9_.:-]+)\s*$")
 
 
@@ -58,15 +58,15 @@ class TagGovernance:
         text = path.read_text(encoding="utf-8")
         file_issues: list[GovernanceIssue] = []
 
-        markers = list(MARKER_RE.finditer(text))
-        if "def test_" in text and not markers:
+        marker_calls = self._extract_pytest_tag_calls(text)
+        if "def test_" in text and not marker_calls:
             file_issues.append(GovernanceIssue(str(path), 1, "missing @pytest.mark.tag(...) marker"))
             return file_issues
 
-        for marker in markers:
-            line = text[: marker.start()].count("\n") + 1
-            body = marker.group("body")
-            raw_entries = [item.strip().strip('"\'') for item in body.split(",") if item.strip()]
+        for line, raw_entries, extraction_errors in marker_calls:
+            if extraction_errors:
+                file_issues.append(GovernanceIssue(str(path), line, f"tag parse errors: {extraction_errors}"))
+                continue
             tags, parse_errors = parse_tag_entries(tuple(raw_entries))
             if parse_errors:
                 file_issues.append(GovernanceIssue(str(path), line, f"tag parse errors: {parse_errors}"))
@@ -82,6 +82,42 @@ class TagGovernance:
                 file_issues.append(GovernanceIssue(str(path), line, f"missing required keys: {missing}"))
 
         return file_issues
+
+    def _extract_pytest_tag_calls(self, text: str) -> list[tuple[int, list[str], list[str]]]:
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return []
+
+        calls: list[tuple[int, list[str], list[str]]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for dec in node.decorator_list:
+                if not isinstance(dec, ast.Call):
+                    continue
+                if not self._is_pytest_tag_call(dec.func):
+                    continue
+                line = getattr(dec, "lineno", 1)
+                entries: list[str] = []
+                errors: list[str] = []
+                for arg in dec.args:
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        entries.append(arg.value)
+                    else:
+                        errors.append("tag entries must be string literals in decorators")
+                calls.append((line, entries, errors))
+        return calls
+
+    @staticmethod
+    def _is_pytest_tag_call(func: ast.AST) -> bool:
+        if not isinstance(func, ast.Attribute) or func.attr != "tag":
+            return False
+        inner = func.value
+        if not isinstance(inner, ast.Attribute) or inner.attr != "mark":
+            return False
+        base = inner.value
+        return isinstance(base, ast.Name) and base.id == "pytest"
 
     def _scan_feature_file(self, path: Path) -> list[GovernanceIssue]:
         issues: list[GovernanceIssue] = []
