@@ -1,0 +1,32 @@
+{
+  "repos": [
+    {
+      "name": "ui-tests",
+      "path": "/workspace/ui-tests",
+      "repo_type": "ui",
+      "runner": "pytest",
+      "query": "scope=ui AND intent=functional"
+    },
+    {
+      "name": "api-tests",
+      "path": "/workspace/APITest/api-tests",
+      "repo_type": "api",
+      "runner": "pytest",
+      "query": "scope=api AND intent=functional"
+    },
+    {
+      "name": "device-tests",
+      "path": "/workspace/device-tests",
+      "repo_type": "device",
+      "runner": "pytest",
+      "query": "scope=device"
+    },
+    {
+      "name": "e2e-tests",
+      "path": "/workspace/e2e-tests",
+      "repo_type": "e2e",
+      "runner": "pytest",
+      "query": "scope=e2e"
+    }
+  ]
+}

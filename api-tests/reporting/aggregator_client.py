@@ -5,8 +5,15 @@ import json
 from pathlib import Path
 import shutil
 
+from history.sqlite_manager import SQLiteManager
 
-def merge_canonical_reports(paths: list[str], output_path: str, copy_allure_to: str | None = None) -> Path:
+
+def merge_canonical_reports(
+    paths: list[str],
+    output_path: str,
+    copy_allure_to: str | None = None,
+    sqlite_db_path: str | None = "artifacts/history.db",
+) -> Path:
     merged_runs: list[dict] = []
     for path in paths:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -24,7 +31,7 @@ def merge_canonical_reports(paths: list[str], output_path: str, copy_allure_to: 
     out.write_text(
         json.dumps(
             {
-                "schema_version": "3.0",
+                "schema_version": "3.1",
                 "aggregated_from": paths,
                 "runs": normalized,
                 "summary": summary,
@@ -40,6 +47,9 @@ def merge_canonical_reports(paths: list[str], output_path: str, copy_allure_to: 
 
     if copy_allure_to:
         aggregate_allure_results(paths, copy_allure_to)
+
+    if sqlite_db_path:
+        _write_history_metrics(normalized, sqlite_db_path)
 
     return out
 
@@ -135,6 +145,21 @@ def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
         "repo_cards": repo_cards,
         "merged_results": merged_results,
     }
+
+
+def _write_history_metrics(runs: list[dict], sqlite_db_path: str) -> None:
+    db = SQLiteManager(sqlite_db_path)
+    for run in runs:
+        metrics = run.get("normalized_metrics", {})
+        db.insert_metric(
+            run_id=run.get("run_id", ""),
+            timestamp=run.get("timestamp", ""),
+            api_name=run.get("source_repo", "unknown"),
+            latency=float(metrics.get("latency_avg_ms", 0)),
+            error_rate=float(metrics.get("error_rate", 0)),
+            throughput=float(run.get("summary", {}).get("total", 0)),
+            scope=run.get("scope", "unknown"),
+        )
 
 
 def aggregate_allure_results(canonical_paths: list[str], output_dir: str) -> Path:
