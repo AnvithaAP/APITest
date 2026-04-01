@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -51,6 +52,38 @@ def _extract_item_tags(item: pytest.Item) -> dict[str, str]:
     return tags
 
 
+def _validate_atomic_tests(items: list[pytest.Item]) -> list[str]:
+    violations: list[str] = []
+    for item in items:
+        path = Path(str(item.fspath))
+        normalized = str(path).replace('\\', '/')
+        if '/functional/' not in normalized and '/performance/' not in normalized:
+            continue
+        try:
+            source = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        module = ast.parse(source)
+        fn_name = item.name.split("[")[0]
+        fn = next(
+            (
+                node
+                for node in ast.walk(module)
+                if isinstance(node, ast.FunctionDef) and node.name == fn_name
+            ),
+            None,
+        )
+        if fn is None:
+            continue
+        assert_count = sum(1 for node in ast.walk(fn) if isinstance(node, ast.Assert))
+        if assert_count > 1:
+            violations.append(
+                f"{item.nodeid} has {assert_count} assertions; atomic policy allows 1 assertion per test"
+            )
+    return violations
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--tag-query", action="store", default="", help="Tag query format: key=v1,v2 AND key2=v")
 
@@ -62,6 +95,7 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config, items: list[pytest.Item]) -> None:
     guard = TagGuard()
     errors = guard.validate_pytest_items(items)
+    errors.extend(_validate_atomic_tests(items))
     if errors:
         formatted = "\n".join(f"- {e}" for e in errors)
         raise pytest.UsageError(f"Tag guard validation failed:\n{formatted}")

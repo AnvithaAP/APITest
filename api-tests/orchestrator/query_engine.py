@@ -84,6 +84,29 @@ def build_query_string(filters: dict[str, list[str]], group_operator: str = "AND
         groups.append(" AND ".join(parts))
     return " OR ".join(groups)
 
+
+def build_query_from_tags(filters: dict[str, list[str]], default_all: bool = True) -> str:
+    """Build normalized query that supports multi-value input for every tag.
+
+    Empty filters are interpreted as ALL and omitted from query when default_all=True.
+    """
+    clauses: list[str] = []
+    for key, values in filters.items():
+        clean_values = sorted({v.strip() for v in values if v and v.strip() and v.upper() != "ALL"})
+        if not clean_values:
+            if default_all:
+                continue
+            raise ValueError(f"tag '{key}' is empty and default_all is disabled")
+
+        if len(clean_values) == 1:
+            clauses.append(f"{key}={clean_values[0]}")
+        else:
+            nested = " OR ".join(f"{key}={value}" for value in clean_values)
+            clauses.append(f"({nested})")
+
+    return " AND ".join(clauses)
+
+
 def flatten_query(parsed: ParsedQuery) -> dict[str, list[str]]:
     merged: dict[str, set[str]] = {}
     for group in parsed.groups:

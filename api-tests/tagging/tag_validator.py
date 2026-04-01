@@ -57,7 +57,15 @@ def validate_tags(tags: dict[str, str]) -> ValidationResult:
     if missing:
         errors.append(f"missing required tags: {missing}")
 
+    unknown = sorted(normalized_keys - REQUIRED_KEYS)
+    if unknown:
+        errors.append(f"unknown tag keys are not allowed: {unknown}")
+
     normalized = {k.strip().lower(): normalize_tag_value(v) for k, v in tags.items()}
+
+    for key, raw_value in tags.items():
+        if isinstance(raw_value, str) and any(sep in raw_value for sep in [",", "|", ";"]):
+            errors.append(f"tag {key} must have a single atomic value; multi-value tags are only allowed in query input")
 
     scope = normalized.get("scope")
     if scope and scope not in ALLOWED_SCOPE:

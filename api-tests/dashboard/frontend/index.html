@@ -8,12 +8,21 @@
     <style>
       body { font-family: Arial, sans-serif; margin: 24px; background: #0f172a; color: #e2e8f0; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+      .kpi { border: 1px solid #334155; border-radius: 10px; padding: 10px; background: #111827; }
       canvas { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 12px; }
+      code { color: #93c5fd; }
     </style>
   </head>
   <body>
     <h1>Live API Test Metrics</h1>
     <p id="status">Loading live data…</p>
+    <div class="kpis">
+      <div class="kpi"><b>Pass Rate</b><div id="passRate">-</div></div>
+      <div class="kpi"><b>Error Rate</b><div id="errorRate">-</div></div>
+      <div class="kpi"><b>Throughput</b><div id="throughput">-</div></div>
+      <div class="kpi"><b>Release</b><div id="releaseState">-</div></div>
+    </div>
     <div class="grid">
       <canvas id="latencyChart"></canvas>
       <canvas id="throughputChart"></canvas>
@@ -54,7 +63,14 @@
           throughputChart.data.datasets[0].data = points.map(p => p.throughput_avg || 0);
           throughputChart.update();
 
-          document.getElementById('status').textContent = `Live data bound. Samples: ${points.length}`;
+          const summary = (payload.kpi && payload.kpi.summary) || {};
+          const release = (((payload.aggregated || {}).release_readiness) || {}).status || 'unknown';
+          document.getElementById('passRate').textContent = `${summary.pass_rate || 0}%`;
+          document.getElementById('errorRate').textContent = `${((summary.error_rate || 0) * 100).toFixed(2)}%`;
+          document.getElementById('throughput').textContent = `${summary.throughput_tests_per_second || 0} t/s`;
+          document.getElementById('releaseState').textContent = release;
+
+          document.getElementById('status').textContent = `Live data bound. Samples: ${points.length}. Repo cards: ${((payload.aggregated || {}).repo_cards || []).length}`;
         } catch (err) {
           document.getElementById('status').textContent = `Failed to load metrics: ${err.message}`;
         }
