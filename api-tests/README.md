@@ -22,7 +22,8 @@ api-tests/
   reporting/                 # canonical, html, allure, aggregation
   history/                   # sqlite metrics + trend graph html
   core/validators/           # schema validation + diff engine
-  integrations/              # ADO traceability payload hooks
+  integrations/              # ADO traceability + push clients
+  dashboard/                 # enterprise dashboard renderers
   artifacts/                 # generated outputs
 ```
 
@@ -103,3 +104,10 @@ Produced under `artifacts/`:
 ```bash
 python core/validators/schema_diff_cli.py --old schemas/responses/user_v1.json --new schemas/versions/user_v2.json --strict
 ```
+
+## New Enterprise Modules
+- `orchestrator/gitlab_orchestrator.py`: triggers GitLab pipelines for UI/API/Device/E2E repos via API.
+- `integrations/ado_client.py`: sends aggregated run results/status/metadata to Azure DevOps hooks.
+- `dashboard/dashboard.py`: renders Plotly dashboard (latency/error/scope KPIs) from aggregated payload.
+- `reporting/aggregator_client.py`: now persists normalized metrics to SQLite history for trend reporting.
+- `.gitlab-ci.yml`: upgraded with dedicated `orchestrate` stage and dashboard/ADO publication.

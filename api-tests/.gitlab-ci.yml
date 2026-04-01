@@ -1,13 +1,15 @@
 stages:
   - validate
+  - orchestrate
   - test
   - perf
   - report
 
 variables:
-  TAG_QUERY: "scope=api AND intent=functional OR intent=performance"
+  TAG_QUERY: "scope=api AND (intent=functional OR intent=performance)"
   PYTEST_PARALLEL: "2"
   PYTEST_RETRIES: "1"
+  AGGREGATED_CANONICAL: "artifacts/aggregated_canonical.json"
 
 default:
   before_script:
@@ -30,6 +32,13 @@ auto_fix_tags:
   image: python:3.11
   script:
     - python tagging/tag_autofix.py functional governance
+  allow_failure: true
+
+orchestrate_multi_repo:
+  stage: orchestrate
+  image: python:3.11
+  script:
+    - python orchestrator/execution_router.py --runner pytest --repos-file repos.json --query "$TAG_QUERY" --parallel "4" --aggregate-out "$AGGREGATED_CANONICAL"
   allow_failure: true
 
 run_functional:
@@ -67,11 +76,16 @@ publish_reports:
   script:
     - python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
     - python -c "from integrations.ado_traceability import write_ado_traceability_payload; write_ado_traceability_payload('artifacts/canonical_run.json')"
+    - python -c "from integrations.ado_client import write_ado_submission; write_ado_submission('$AGGREGATED_CANONICAL')"
+    - python dashboard/dashboard.py --aggregated "$AGGREGATED_CANONICAL" --out artifacts/dashboard.html
   artifacts:
     when: always
     paths:
       - artifacts/canonical_run.json
+      - artifacts/aggregated_canonical.json
       - artifacts/html_report.html
       - artifacts/history_trends.html
+      - artifacts/dashboard.html
       - artifacts/allure-results/
       - artifacts/ado_traceability.json
+      - artifacts/ado_submission.json
