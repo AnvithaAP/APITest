@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from orchestrator.query_engine import ParsedQuery, flatten_query, matches_query as evaluate_query, parse_query as parse_advanced_query
+
 
 def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[str]]:
     tags: dict[str, str] = {}
@@ -17,21 +19,17 @@ def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[st
 
 
 def parse_query(query: str) -> dict[str, list[str]]:
-    filters: dict[str, list[str]] = {}
-    if not query:
-        return filters
-
-    for token in [part.strip() for part in query.split("AND")]:
-        if not token:
-            continue
-        if "=" not in token:
-            raise ValueError(f"Invalid query token '{token}', expected key=value")
-        k, v = [s.strip() for s in token.split("=", 1)]
-        filters[k] = [item.strip() for item in v.split(",") if item.strip()]
-    return filters
+    return flatten_query(parse_advanced_query(query))
 
 
-def matches_query(tags: dict[str, str], query_filters: dict[str, list[str]]) -> bool:
+def parse_query_groups(query: str) -> ParsedQuery:
+    return parse_advanced_query(query)
+
+
+def matches_query(tags: dict[str, str], query_filters: dict[str, list[str]] | ParsedQuery) -> bool:
+    if isinstance(query_filters, ParsedQuery):
+        return evaluate_query(tags, query_filters)
+
     if not query_filters:
         return True
     for key, accepted_values in query_filters.items():

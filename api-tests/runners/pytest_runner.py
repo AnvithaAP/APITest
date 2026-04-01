@@ -13,6 +13,7 @@ import subprocess
 
 from history.html_trend_report import render_trend_html
 from history.sqlite_manager import SQLiteManager
+from reporting.allure_adapter import write_allure_results
 from reporting.canonical_formatter import build_canonical_report, write_canonical_report
 from reporting.html_report import render_html_report
 from tagging.tag_parser import parse_query
@@ -51,6 +52,7 @@ def main() -> int:
 
     canonical = build_canonical_report(raw, args.query, query_tags, source_repo=args.repo)
     write_canonical_report(canonical)
+    write_allure_results(canonical)
     render_html_report(canonical)
 
     db = SQLiteManager()

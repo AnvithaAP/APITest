@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tagging.tag_guard import TagGuard
-from tagging.tag_parser import matches_query, parse_query, parse_tag_entries
+from tagging.tag_parser import matches_query, parse_query_groups, parse_tag_entries
 
 
 class ResultCollector:
@@ -67,7 +67,7 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
         raise pytest.UsageError(f"Tag guard validation failed:\n{formatted}")
 
     query = config.getoption("--tag-query")
-    filters = parse_query(query)
+    filters = parse_query_groups(query)
     if not filters:
         return
 

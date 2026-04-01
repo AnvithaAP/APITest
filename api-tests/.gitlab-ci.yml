@@ -1,46 +1,72 @@
 stages:
   - validate
   - test
+  - perf
   - report
 
 variables:
-  TAG_QUERY: "scope=api AND intent=functional"
+  TAG_QUERY: "scope=api AND intent=functional OR intent=performance"
   PYTEST_PARALLEL: "2"
   PYTEST_RETRIES: "1"
+
+default:
+  before_script:
+    - pip install -r requirements.txt
 
 validate_tags:
   stage: validate
   image: python:3.11
   script:
-    - pip install -r requirements.txt
     - python runners/pytest_runner.py --query "$TAG_QUERY" --dry-run
+
+validate_schema_diff:
+  stage: validate
+  image: python:3.11
+  script:
+    - python core/validators/schema_diff_cli.py --old schemas/responses/user_v1.json --new schemas/versions/user_v2.json --strict
+
+auto_fix_tags:
+  stage: validate
+  image: python:3.11
+  script:
+    - python tagging/tag_autofix.py functional governance
+  allow_failure: true
 
 run_functional:
   stage: test
   image: python:3.11
   script:
-    - pip install -r requirements.txt
-    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY"
+    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY" --parallel "$PYTEST_PARALLEL" --retries "$PYTEST_RETRIES"
   artifacts:
     when: always
     paths:
       - artifacts/
 
-run_performance:
+run_governance:
   stage: test
+  image: python:3.11
+  script:
+    - python governance/governance_engine.py --query "scope=api AND intent=functional"
+
+run_k6:
+  stage: perf
   image: grafana/k6:latest
   script:
     - k6 run performance/latency/k6_latency.js
-  artifacts:
-    when: always
-    paths:
-      - artifacts/
+
+run_gatling:
+  stage: perf
+  image: denvazh/gatling:3.9.5
+  script:
+    - gatling -s BasicSimulation
+  allow_failure: true
 
 publish_reports:
   stage: report
   image: python:3.11
   script:
     - python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
+    - python -c "from integrations.ado_traceability import write_ado_traceability_payload; write_ado_traceability_payload('artifacts/canonical_run.json')"
   artifacts:
     when: always
     paths:
@@ -48,3 +74,4 @@ publish_reports:
       - artifacts/html_report.html
       - artifacts/history_trends.html
       - artifacts/allure-results/
+      - artifacts/ado_traceability.json
