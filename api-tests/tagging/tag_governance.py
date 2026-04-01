@@ -87,6 +87,7 @@ class TagGovernance:
         issues: list[GovernanceIssue] = []
         content = path.read_text(encoding="utf-8").splitlines()
         found_feature_tags = False
+        feature_tags: dict[str, str] = {}
 
         for idx, line in enumerate(content, start=1):
             if line.strip().startswith("Feature:"):
@@ -104,6 +105,11 @@ class TagGovernance:
                 issues.append(GovernanceIssue(str(path), idx, f"unsupported feature tag key '{key}'"))
             if not value:
                 issues.append(GovernanceIssue(str(path), idx, f"empty feature tag value for '{key}'"))
+                continue
+            if key in feature_tags:
+                issues.append(GovernanceIssue(str(path), idx, f"duplicate feature tag key '{key}'"))
+                continue
+            feature_tags[key] = value
 
         if not found_feature_tags:
             issues.append(
@@ -113,6 +119,16 @@ class TagGovernance:
                     "feature-level tags are required (scope:intent:concern:type:module:release as key:value lines)",
                 )
             )
+            return issues
+
+        normalized_keys = {k.lower().strip() for k in feature_tags.keys()}
+        missing = sorted(REQUIRED_KEYS - normalized_keys)
+        if missing:
+            issues.append(GovernanceIssue(str(path), 1, f"missing required feature keys: {missing}"))
+
+        result = validate_tags(feature_tags)
+        if not result.ok:
+            issues.append(GovernanceIssue(str(path), 1, f"invalid feature tags: {result.errors}"))
 
         return issues
 

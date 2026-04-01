@@ -43,3 +43,27 @@ def test_pytest_file_with_required_tags_passes(tmp_path: Path) -> None:
     report = TagGovernance().scan([tmp_path])
 
     assert report.ok
+
+
+@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=compliance", "module=platform", "release=R2026.04-S1")
+def test_feature_file_enforces_intent_to_type_governance_rules(tmp_path: Path) -> None:
+    feature = tmp_path / "api_health.feature"
+    feature.write_text(
+        "\n".join(
+            [
+                "@scope:api",
+                "@intent:functional",
+                "@concern:data",
+                "@type:load",
+                "@module:platform",
+                "@release:R2026.04-S1",
+                "Feature: API health checks",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    report = TagGovernance().scan([tmp_path])
+
+    assert not report.ok
+    assert any("functional type must be one of" in issue.message for issue in report.issues)

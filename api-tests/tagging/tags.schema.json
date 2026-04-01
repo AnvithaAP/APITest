@@ -5,7 +5,7 @@
   "required": ["scope", "intent", "concern", "type", "module", "release"],
   "properties": {
     "scope": {"const": "api"},
-    "intent": {"enum": ["functional", "performance", "security", "reliability"]},
+    "intent": {"enum": ["functional", "performance", "security", "reliability", "governance"]},
     "concern": {
       "enum": [
         "contract", "data", "behavior", "error", "auth",
@@ -18,10 +18,20 @@
       "enum": [
         "smoke", "sanity", "regression", "system",
         "load", "stress", "spike", "soak", "benchmark",
-        "compliance", "resilience", "recovery", "failover"
+        "compliance", "policy", "standard", "resilience", "recovery", "failover"
       ]
     },
     "module": {"type": "string"},
     "release": {"type": "string", "pattern": "^R\\d{4}\\.\\d{2}-S\\d{1,2}$"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"intent": {"const": "functional"}}, "required": ["intent"]},
+      "then": {"properties": {"type": {"enum": ["smoke", "sanity", "regression", "system"]}}}
+    },
+    {
+      "if": {"properties": {"intent": {"const": "performance"}}, "required": ["intent"]},
+      "then": {"properties": {"type": {"enum": ["load", "stress", "spike", "soak", "benchmark"]}}}
+    }
+  ]
 }
