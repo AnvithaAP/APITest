@@ -1,44 +1,101 @@
 # Enterprise API Testing Framework
 
-A production-grade API quality framework designed for **maximum defect detection** with explicit coverage across contract, behavior, data correctness, auth, headers, errors, availability, and performance.
+A governance-first, config-driven, and enterprise-scalable framework for validating API quality across functional correctness, resilience, performance, and release-readiness.
 
-## API Coverage-First Test Structure
+---
+
+## 1. Framework Goals
+
+This framework is designed to ensure:
+
+- **TESTING**: deep API validation by concern (contract, auth, data, behavior, errors, availability, headers, performance)
+- **EXECUTION**: atomic, local, and parallel execution paths
+- **ORCHESTRATION**: selective query-driven routing and multi-repo workflows
+- **DISTRIBUTION**: local + Kubernetes-backed distributed execution
+- **REPORTING**: canonical result aggregation and artifact generation
+- **HISTORY**: trend persistence and historical analytics
+- **DASHBOARD**: digestible quality dashboard output
+- **CI/CD**: validate → orchestrate → test → report pipeline model
+- **GOVERNANCE**: enforced tagging and quality standards
+- **DOCUMENTATION**: best-practice and leadership-ready docs
+- **METRICS**: KPI layer with pass/fail and concern-level insights
+- **CONFIG CONTROL**: centralized config for reusable modular execution
+
+---
+
+## 2. Architecture Overview
 
 ```text
-functional/
-  contract/      # schema + structure checks
-  data/          # response content correctness
-  behavior/      # business rule validation
-  error/         # error payload + status handling
-  auth/          # authentication + authorization
-  availability/  # uptime and health checks
-  headers/       # header correctness and compliance
-  features/      # BDD feature files
-  steps/         # BDD step definitions
-performance/
-  ...            # latency/capacity/scalability suites
+api-tests/
+  core/
+    client/               # HTTP primitives
+    config/               # central configuration loader
+    validators/           # reusable validation components
+
+  functional/             # behavior-focused API correctness suites
+    contract/
+    data/
+    behavior/
+    error/
+    auth/
+    availability/
+    headers/
+    features/             # BDD feature files
+    steps/                # BDD step definitions
+
+  performance/            # latency/capacity/scalability/stability
+
+  governance/             # naming/header/response standards and policy checks
+  tagging/                # tag schema, parser, governance enforcement
+
+  orchestrator/           # query/execution routing + enterprise orchestration
+  runners/                # pytest/k6/gatling/distributed runners
+  infra/k8s/              # Kubernetes distribution primitives
+
+  reporting/              # canonical + html/allure adapters
+  history/                # sqlite persistence + trend analysis
+  dashboard/              # backend + frontend dashboard components
+  metrics/                # KPI computation and dashboard markdown generation
+
+  integrations/           # ADO traceability and enterprise connectors
+  deployment/             # setup docs for GitLab, K8s, AWS IAM, ADO
+
+  config/
+    runtime.env           # frequently changing values (edit once)
+    env.yaml              # environment topology defaults
+    endpoints.yaml        # endpoint mappings
+
+  docs/
+    best_practices.md     # governance/maintainability rules
+    presentation.md       # leadership demo narrative
 ```
 
-This structure enforces a no-gap default and makes adding new tests straightforward:
-1. Pick the concern folder.
-2. Add a tagged test.
-3. Run by concern/tag in CI or locally.
+---
 
-## Validation Engine (Reusable and Centralized)
+## 3. Execution Model
 
-`core/validators/` now provides reusable validators for:
-- Schema validation
-- Response/status validation
-- Header validation
-- Error payload validation
-- Availability probing
-- Performance SLO validation (threshold + percentile)
+### Local execution
+Run specific suites directly with `pytest` and tag-query filters.
 
-All validators are importable from `core.validators` to keep tests concise and standardized.
+### Query-driven selective execution
+Use `--tag-query` (or orchestrator query engines) to execute only relevant subsets:
 
-## Coverage, Control, and Tagging
+- smoke
+- regression
+- module-specific
+- concern-specific
+- release-specific
 
-Each test uses structured tags:
+### Parallel and atomic execution
+- Parallel: `pytest -n auto`
+- Atomic mode: execution engine can isolate targeted runs for deterministic debugging.
+
+---
+
+## 4. Tagging System (Governance Core)
+
+Mandatory tags per test:
+
 - `scope`
 - `intent`
 - `concern`
@@ -46,44 +103,138 @@ Each test uses structured tags:
 - `module`
 - `release`
 
-This supports precise slicing by module, concern, and execution purpose (smoke/regression/system/load/etc), and powers governance checks to prevent untagged tests.
+Why this matters:
 
-## Execution + Orchestration + Distribution
+- Prevents unstructured tests
+- Enables selective slicing and CI optimization
+- Supports governance checks and portfolio-level traceability
 
-- **Execution engine**: local/parallel/atomic execution.
-- **Orchestration**: multi-repo GitLab triggering and routing.
-- **Distribution**: local and Kubernetes-distributed runners.
-- **Reporting**: canonical aggregation + HTML/Allure/dashboard artifacts.
-- **History**: SQLite-backed trend persistence.
-- **Dashboard**: FastAPI + frontend for live metrics.
-- **Governance**: tag validation and policy checks.
+Governance entrypoints:
 
-## GitLab CI/CD (Optimized Flow)
+- `tagging/tag_governance.py`
+- `tagging/tag_guard.py`
 
-Pipeline stages:
-1. `validate` (governance + dry-run collection)
-2. `orchestrate` (multi-repo orchestration)
-3. `test` (parallel execution with `pytest -n auto`)
-4. `report` (aggregate and publish artifacts)
+---
 
-This is designed for fast feedback, scalable execution, and repeatable releases.
+## 5. Centralized Config-Driven Architecture (Critical)
 
-## Quick Commands
+### Frequently changing values: `config/runtime.env`
+Use this file for fast-moving values such as:
+
+- target environment
+- base URL override
+- request timeout
+- default release label
+- KPI output paths
+
+### Stable environment topology: `config/env.yaml`
+Stores environment names and base URL defaults.
+
+### Endpoint mapping: `config/endpoints.yaml`
+Stores service and endpoint paths to remove hardcoding.
+
+### Single access point
+Use `core.config.load_runtime_config()` so updates to config files propagate framework-wide.
+
+**Result:** change once → reflect everywhere.
+
+---
+
+## 6. KPI / Metrics Layer
+
+### Files
+- `metrics/kpi_engine.py`
+- `metrics/kpi_dashboard.py`
+
+### Current KPIs
+- pass rate
+- fail rate
+- average test duration
+- execution distribution by concern
+
+### Extension roadmap
+- latency trends
+- failure-rate trend movement
+- regression stability index
+- release quality scoring
+
+---
+
+## 7. Reporting, History, and Dashboard
+
+- `reporting/`: canonical formatting, HTML, Allure adapters
+- `history/`: SQLite trend storage and analyzers
+- `dashboard/`: backend and frontend presentation layer
+- `metrics/`: KPI markdown and JSON generation for leadership-level summaries
+
+---
+
+## 8. CI/CD Flow (GitLab)
+
+Standard stage flow:
+
+1. **validate**
+   - tagging governance checks
+   - test collection sanity
+2. **orchestrate**
+   - multi-repo/targeted run planning
+3. **test**
+   - distributed or parallel execution
+4. **report**
+   - aggregate canonical output + generate dashboard/KPI artifacts
+
+---
+
+## 9. Integrations and Enterprise Scale
+
+- **K8s distribution**: scalable run execution
+- **GitLab orchestration**: controlled CI execution strategy
+- **ADO integration**: traceability and work-item alignment
+- **AWS IAM setup**: secure cloud access patterns
+
+This enables platform-scale adoption across teams and services.
+
+---
+
+## 10. Practical Commands
 
 ```bash
-# Validate governance and collect suite
+# 1) Governance checks
 python tagging/tag_governance.py functional performance governance
 pytest --collect-only -q
 
-# Local targeted execution
-python orchestrator/execution_engine.py --query "scope=api AND intent=functional" --parallel 8 --atomic
+# 2) Selective execution
+pytest -q --tag-query "scope=api AND intent=functional AND type=smoke"
 
-# Parallel full run
-pytest -n auto -q
+# 3) Orchestrated execution
+python orchestrator/execution_engine.py --query "scope=api AND concern=auth" --parallel 8 --atomic
 
-# Distributed/Kubernetes execution
+# 4) Distributed execution
 python runners/distributed_runner.py --execution-mode k8s --query "scope=api" --namespace qa
 
-# Generate dashboard/report assets
+# 5) Dashboard + KPI outputs
 python dashboard/dashboard.py --aggregated artifacts/aggregated_canonical.json --out artifacts/dashboard.html
+python metrics/kpi_engine.py
+python metrics/kpi_dashboard.py
 ```
+
+---
+
+## 11. Modular Design Philosophy
+
+- Keep tests concern-specific and atomic.
+- Reuse validators from `core/validators`.
+- Keep orchestration independent from test logic.
+- Keep config centralized and environment-aware.
+- Keep KPI/reporting separated from execution for maintainability.
+
+This separation protects long-term maintainability and prevents framework degradation.
+
+---
+
+## 12. Documentation Additions
+
+- Best practices guide: `docs/best_practices.md`
+- Leadership presentation: `docs/presentation.md`
+
+These docs support operational excellence and executive communication.
