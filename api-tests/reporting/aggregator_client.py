@@ -15,14 +15,19 @@ def merge_canonical_reports(
     sqlite_db_path: str | None = "artifacts/history.db",
 ) -> Path:
     merged_runs: list[dict] = []
+    merged_cucumber: list[dict] = []
     for path in paths:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        if payload.get("schema") == "open-bdd-v1":
+            merged_runs.append(payload.get("canonical", {}))
+            merged_cucumber.extend(payload.get("cucumber", []))
+            continue
         if "runs" in payload:
             merged_runs.extend(payload["runs"])
         else:
             merged_runs.append(payload)
 
-    normalized = [_normalize_run(run) for run in merged_runs]
+    normalized = [_normalize_run(run) for run in merged_runs if run]
     summary = _build_summary(normalized)
     dashboard = _build_dashboard_payload(normalized, summary)
 
@@ -36,6 +41,7 @@ def merge_canonical_reports(
                 "runs": normalized,
                 "summary": summary,
                 "dashboard": dashboard,
+                "cucumber": merged_cucumber,
             },
             indent=2,
         ),
@@ -44,6 +50,9 @@ def merge_canonical_reports(
 
     dashboard_out = out.with_name("dashboard_ready.json")
     dashboard_out.write_text(json.dumps(dashboard, indent=2), encoding="utf-8")
+
+    cucumber_out = out.with_name("cucumber_aggregated.json")
+    cucumber_out.write_text(json.dumps(merged_cucumber, indent=2), encoding="utf-8")
 
     if copy_allure_to:
         aggregate_allure_results(paths, copy_allure_to)

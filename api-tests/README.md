@@ -162,12 +162,24 @@ Use `core.config.load_runtime_config()` so updates to config files propagate fra
 
 ## 7. Reporting, History, and Dashboard
 
-- `reporting/`: canonical formatting, HTML, Allure adapters
+- `reporting/`: canonical formatting, Cucumber/BDD JSON, standardized multi-repo envelopes, HTML, and Allure adapters
 - `history/`: SQLite trend storage and analyzers
 - `dashboard/`: backend and frontend presentation layer
 - `metrics/`: KPI markdown and JSON generation for leadership-level summaries
 
 ---
+
+
+### BDD / Cucumber outputs
+
+Every pytest execution is now exported as:
+
+- `artifacts/pytest_report.json` (internal execution result)
+- `artifacts/canonical_run.json` (normalized framework run contract)
+- `artifacts/cucumber-report.json` (Cucumber JSON compatible with BDD dashboards)
+- `artifacts/standardized-report.json` (`open-bdd-v1` portable envelope for cross-repo aggregation)
+
+This allows each repository to publish a standard artifact that can be merged into a single dashboard feed.
 
 ## 8. CI/CD Flow (GitLab)
 
@@ -216,6 +228,9 @@ python runners/distributed_runner.py --execution-mode k8s --query "scope=api" --
 python dashboard/dashboard.py --aggregated artifacts/aggregated_canonical.json --out artifacts/dashboard.html
 python metrics/kpi_engine.py
 python metrics/kpi_dashboard.py
+
+# 6) Multi-repo standardized aggregation
+python reporting/aggregate_reports.py ../repo-a/artifacts/standardized-report.json ../repo-b/artifacts/standardized-report.json --out artifacts/aggregated_canonical.json
 ```
 
 ---

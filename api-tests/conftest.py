@@ -7,6 +7,8 @@ import re
 
 import pytest
 
+from reporting.cucumber_formatter import build_cucumber_report, write_cucumber_report
+from reporting.standardized_report import build_standardized_report, write_standardized_report
 from tagging.tag_guard import TagGuard
 from tagging.tag_parser import matches_query, parse_query_groups, parse_tag_entries
 
@@ -40,6 +42,19 @@ class ResultCollector:
         out = Path("artifacts/pytest_report.json")
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+        cucumber = build_cucumber_report(report)
+        write_cucumber_report(cucumber)
+        if self.tests:
+            repo = Path.cwd().name
+            minimal_canonical = {
+                "source_repo": repo,
+                "run_id": f"{repo}-{exitstatus}",
+                "scope": "api",
+                "intent": "functional",
+                "summary": summary,
+            }
+            write_standardized_report(build_standardized_report(minimal_canonical, cucumber))
 
 
 collector = ResultCollector()
