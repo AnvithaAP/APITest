@@ -27,7 +27,7 @@ def _discover_tests(query: str) -> list[str]:
     tests: list[str] = []
     for line in proc.stdout.splitlines():
         line = line.strip()
-        if "::test_" in line:
+        if "::" in line and ".py::" in line:
             tests.append(line)
     return tests
 
