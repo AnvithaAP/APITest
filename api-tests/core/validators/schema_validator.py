@@ -1,31 +1,17 @@
 from __future__ import annotations
 
-
-def _validate_type(value, expected: str) -> bool:
-    mapping = {
-        "integer": int,
-        "string": str,
-        "boolean": bool,
-        "object": dict,
-        "array": list,
-    }
-    py_type = mapping.get(expected)
-    return True if py_type is None else isinstance(value, py_type)
+from jsonschema import Draft202012Validator
 
 
 def validate_json_schema(instance: dict, schema: dict) -> None:
-    required = schema.get("required", [])
-    properties = schema.get("properties", {})
+    validator = Draft202012Validator(schema)
+    errors = sorted(validator.iter_errors(instance), key=lambda e: list(e.path))
+    if not errors:
+        return
 
-    for key in required:
-        if key not in instance:
-            raise AssertionError(f"Schema validation failed: missing required key '{key}'")
+    formatted = []
+    for error in errors:
+        path = ".".join(str(p) for p in error.path) or "<root>"
+        formatted.append(f"{path}: {error.message}")
 
-    for key, rules in properties.items():
-        if key not in instance:
-            continue
-        expected_type = rules.get("type")
-        if expected_type and not _validate_type(instance[key], expected_type):
-            raise AssertionError(
-                f"Schema validation failed: key '{key}' expected {expected_type}, got {type(instance[key]).__name__}"
-            )
+    raise AssertionError("Schema validation failed: " + " | ".join(formatted))

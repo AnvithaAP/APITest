@@ -10,13 +10,30 @@ if str(ROOT) not in sys.path:
 import argparse
 import subprocess
 
+from tagging.tag_parser import parse_query
+
+
+SIMULATION_BY_CONCERN = {
+    "latency": "simulations.LatencySimulation",
+    "capacity": "simulations.CapacitySimulation",
+    "scalability": "simulations.ScalabilitySimulation",
+    "stability": "simulations.StabilitySimulation",
+}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--simulation", default="simulations.BasicSimulation")
+    parser.add_argument("--simulation", default="")
     parser.add_argument("--query", default="")
     args = parser.parse_args()
-    cmd = ["gatling", "-s", args.simulation]
+
+    simulation = args.simulation
+    if not simulation and args.query:
+        concern = parse_query(args.query).get("concern", "")
+        simulation = SIMULATION_BY_CONCERN.get(concern, "")
+    simulation = simulation or "simulations.BasicSimulation"
+
+    cmd = ["gatling", "-s", simulation]
     return subprocess.call(cmd)
 
 

@@ -9,7 +9,6 @@ if str(ROOT) not in sys.path:
 
 import argparse
 import json
-from pathlib import Path
 import subprocess
 import sys
 
@@ -17,41 +16,59 @@ from history.html_trend_report import render_trend_html
 from history.sqlite_manager import SQLiteManager
 from reporting.canonical_formatter import build_canonical_report, write_canonical_report
 from reporting.html_report import render_html_report
-from tagging.tag_parser import parse_query
+from tagging.tag_parser import compile_query_expression, evaluate_query_expression
 
 
-def _filter_tests(pytest_report: dict, query_tags: dict[str, str]) -> None:
-    if not query_tags:
+def _filter_tests(pytest_report: dict, query: str) -> None:
+    if not query:
         return
+    expression = compile_query_expression(query)
+
     filtered = []
     for test in pytest_report.get("tests", []):
-        keywords = test.get("keywords", {})
-        text = " ".join(keywords.keys())
-        if all(f"{k}={v}" in text for k, v in query_tags.items()):
+        tags = test.get("tags", {})
+        if evaluate_query_expression(expression, tags):
             filtered.append(test)
+
     pytest_report["tests"] = filtered
-    pytest_report["summary"]["total"] = len(filtered)
+    summary = pytest_report.get("summary", {})
+    summary["total"] = len(filtered)
+    summary["passed"] = sum(1 for t in filtered if t.get("outcome") == "passed")
+    summary["failed"] = sum(1 for t in filtered if t.get("outcome") == "failed")
+    summary["skipped"] = sum(1 for t in filtered if t.get("outcome") == "skipped")
+    pytest_report["summary"] = summary
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", default="")
+    parser.add_argument("--tag-guard-mode", choices=["strict", "warn"], default="strict")
+    parser.add_argument("--tag-autofix", action="store_true")
     args = parser.parse_args()
 
     report_path = Path("artifacts/pytest_report.json")
     report_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [sys.executable, "-m", "pytest", "functional", "governance"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "functional",
+        "governance",
+        f"--tag-guard-mode={args.tag_guard_mode}",
+    ]
+    if args.tag_autofix:
+        cmd.append("--tag-autofix")
+
     rc = subprocess.call(cmd)
 
     if not report_path.exists():
         return rc
 
     raw = json.loads(report_path.read_text(encoding="utf-8"))
-    query_tags = parse_query(args.query)
-    _filter_tests(raw, query_tags)
+    _filter_tests(raw, args.query)
 
-    canonical = build_canonical_report(raw, args.query, query_tags)
+    canonical = build_canonical_report(raw, args.query)
     write_canonical_report(canonical)
     render_html_report(canonical)
 

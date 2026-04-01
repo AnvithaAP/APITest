@@ -4,86 +4,53 @@ Production-grade, modular API quality framework for **functional**, **performanc
 
 ## Highlights
 - Python + Pytest + Requests functional stack.
-- k6 primary performance runner (Gatling optional wrapper).
-- Strict required tag contract with pre-execution enforcement.
-- Query-driven selective execution (`scope=api AND intent=functional ...`).
-- Canonical JSON output + Allure + HTML summary.
-- SQLite run history + trend HTML report.
-
-## Structure
-See project folders under `api-tests/` matching required architecture.
-
-## Prerequisites
-- Python 3.11+
-- Node + k6 (for performance)
-- Java + Gatling (optional)
-
-Install Python deps:
-```bash
-pip install -r requirements.txt
-```
-
-## Configuration
-- `config/env.yaml`: environment-specific base URLs and defaults.
-- `config/endpoints.yaml`: endpoint catalog.
-- Secrets are resolved using `config/secrets_manager.py` from AWS/GCP/local env vars. No plaintext secrets in code.
-
-## Tag Model (Required)
-Each test must include all tags via `@pytest.mark.tag(...)`:
-- `scope=api`
-- `intent=functional|performance`
-- `concern=<allowed>`
-- `type=<allowed>`
-- `module=<api_group>`
-
-Examples:
-```python
-@pytest.mark.tag(
-    "scope=api",
-    "intent=functional",
-    "concern=data",
-    "type=regression",
-    "module=users"
-)
-```
+- k6 primary performance runner + Gatling support.
+- Strict required tag contract with optional autofix mode.
+- Boolean query-driven selective execution (`AND`, `OR`, parenthesis).
+- Canonical JSON output + Allure + HTML summary + aggregation metadata.
+- SQLite run history + embedded trend graphs.
+- Multi-repo orchestrator trigger via repo manifest.
+- CI-ready GitLab pipeline and ADO trigger adapter.
 
 ## Run tests by tag query
 ```bash
 python orchestrator/execution_router.py \
   --runner pytest \
-  --query "scope=api AND intent=functional AND concern=data AND type=regression"
+  --query "scope=api AND (intent=functional OR concern=contract)"
 ```
 
-## Direct runners
+## Multi-repo orchestration
+```json
+{
+  "repos": [
+    {"name": "api-tests", "path": "/workspace/APITest/api-tests"},
+    {"name": "payments-tests", "path": "/workspace/payments-tests"}
+  ]
+}
+```
+
 ```bash
-python runners/pytest_runner.py --query "scope=api AND intent=functional"
-python runners/k6_runner.py --script performance/latency/k6_latency.js
-python runners/gatling_runner.py --simulation simulations.BasicSimulation
+python orchestrator/execution_router.py --runner pytest --query "scope=api" --repos-file repos.json
 ```
 
-## Reports
-Generated under `artifacts/`:
-- `canonical_run.json` (mandatory canonical format)
-- `html_report.html`
-- `allure-results/` (if plugin installed)
-- `history_trends.html`
+## Tag guard modes
+- `strict` (default): fail collection when tags are invalid.
+- `warn`: continue run and emit warnings.
+- `--tag-autofix`: replace invalid marker values with compliant defaults.
 
-## Add a new functional test
-1. Place test under appropriate concern folder in `functional/`.
-2. Add required tags using `@pytest.mark.tag`.
-3. Reuse `core/client/http_client.py` and validators.
-4. Add/update response schema under `schemas/responses/` and validate in the test.
+## Performance layer
+```bash
+python runners/k6_runner.py --query "scope=api AND intent=performance AND concern=latency"
+python runners/gatling_runner.py --query "scope=api AND intent=performance AND concern=capacity"
+```
 
-## Add a new API module
-1. Add endpoint definitions in `config/endpoints.yaml`.
-2. Add module-scoped tests with `module=<new_group>`.
-3. Update allowed modules in `tagging/tag_validator.py` (controlled extension).
-
-## View history and trends
-After each functional run, history is persisted into SQLite and trends are regenerated:
+## History & analytics
 ```bash
 python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
 ```
 
-## CI/CD (GitLab)
-`.gitlab-ci.yml` accepts query variables and stores reports as artifacts for downstream aggregation.
+## ADO integration
+`integrations/ado_adapter.py` provides `AdoAdapter.trigger_pipeline()` to launch Azure DevOps pipelines with branch and variable overrides.
+
+## GitLab
+`.gitlab-ci.yml` is production-ready for tag validation, functional execution, performance execution, and report publishing.

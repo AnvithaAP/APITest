@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS run_metrics (
   error_rate REAL DEFAULT 0,
   throughput REAL DEFAULT 0
 );
+CREATE INDEX IF NOT EXISTS idx_run_metrics_ts ON run_metrics(timestamp);
+CREATE INDEX IF NOT EXISTS idx_run_metrics_api ON run_metrics(api_name);
 """
 
 
@@ -24,7 +26,7 @@ class SQLiteManager:
 
     def connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
-        conn.execute(SCHEMA_SQL)
+        conn.executescript(SCHEMA_SQL)
         conn.commit()
         return conn
 
@@ -39,3 +41,17 @@ class SQLiteManager:
     def fetch_all(self) -> list[tuple]:
         with self.connect() as conn:
             return conn.execute("SELECT run_id,timestamp,api_name,latency,error_rate,throughput FROM run_metrics ORDER BY id").fetchall()
+
+    def fetch_trends(self) -> list[tuple]:
+        with self.connect() as conn:
+            return conn.execute(
+                """
+                SELECT timestamp,
+                       AVG(latency) AS avg_latency,
+                       AVG(error_rate) AS avg_error_rate,
+                       AVG(throughput) AS avg_throughput
+                FROM run_metrics
+                GROUP BY timestamp
+                ORDER BY timestamp
+                """
+            ).fetchall()
