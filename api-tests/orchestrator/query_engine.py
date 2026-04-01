@@ -62,6 +62,28 @@ def parse_ui_selections(filters: dict[str, list[str]], group_operator: str = "AN
     return ParsedQuery(groups=[clauses])
 
 
+
+def build_query_string(filters: dict[str, list[str]], group_operator: str = "AND", intra_field_operator: str = "OR") -> str:
+    """Build a human-readable query string from structured filters.
+
+    intra_field_operator controls multi-value semantics for one field.
+    """
+    parsed = parse_ui_selections(filters, group_operator=group_operator)
+    if not parsed.groups:
+        return ""
+
+    groups: list[str] = []
+    for group in parsed.groups:
+        parts: list[str] = []
+        for clause in group:
+            if len(clause.values) == 1:
+                parts.append(f"{clause.key}={clause.values[0]}")
+            else:
+                sep = f" {intra_field_operator.upper()} "
+                parts.append("(" + sep.join(f"{clause.key}={v}" for v in clause.values) + ")")
+        groups.append(" AND ".join(parts))
+    return " OR ".join(groups)
+
 def flatten_query(parsed: ParsedQuery) -> dict[str, list[str]]:
     merged: dict[str, set[str]] = {}
     for group in parsed.groups:
