@@ -22,6 +22,8 @@ def render_trend_html(rows: list[tuple], output_path: str) -> Path:
     {_sparkline_svg(error_rates, '#d62728')}
     <h2>Throughput Trend</h2>
     {_sparkline_svg(throughputs, '#2ca02c')}
+    <h2>Historical Comparison</h2>
+    {_comparison(latencies, error_rates)}
     <table border='1' cellspacing='0' cellpadding='6'>
     <tr><th>Run ID</th><th>Timestamp</th><th>API</th><th>Latency</th><th>Error Rate</th><th>Throughput</th></tr>
     {table_rows}
@@ -32,6 +34,18 @@ def render_trend_html(rows: list[tuple], output_path: str) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return out
+
+
+def _comparison(latencies: list[float], errors: list[float]) -> str:
+    if len(latencies) < 2:
+        return "<p>Not enough data for historical comparison.</p>"
+    prev_l, cur_l = latencies[-2], latencies[-1]
+    prev_e, cur_e = errors[-2], errors[-1]
+    lat_delta = ((cur_l - prev_l) / prev_l * 100) if prev_l else 0
+    err_delta = ((cur_e - prev_e) / prev_e * 100) if prev_e else 0
+    return (
+        f"<p>Latest vs previous: latency {lat_delta:+.2f}% | error rate {err_delta:+.2f}%</p>"
+    )
 
 
 def _sparkline_svg(values: list[float], color: str) -> str:

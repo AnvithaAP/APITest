@@ -21,6 +21,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--repos-file", default="")
     parser.add_argument("--aggregate-out", default="artifacts/aggregated_canonical.json")
+    parser.add_argument("--results-out", default="artifacts/orchestrator_results.json")
     args = parser.parse_args()
 
     if args.repos_file:
@@ -35,6 +36,10 @@ def main() -> int:
             args.runner,
             "--aggregate-out",
             args.aggregate_out,
+            "--parallel",
+            str(args.parallel or 4),
+            "--results-out",
+            args.results_out,
         ]
     elif args.runner == "pytest":
         cmd = [sys.executable, "runners/pytest_runner.py", "--query", args.query]

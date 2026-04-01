@@ -17,11 +17,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default="artifacts/history.db")
     parser.add_argument("--out", default="artifacts/history_trends.html")
+    parser.add_argument("--window", type=int, default=20)
     args = parser.parse_args()
 
     manager = SQLiteManager(args.db)
     rows = manager.fetch_all()
-    render_trend_html(rows, args.out)
+    sampled = rows[-args.window :] if args.window > 0 else rows
+    render_trend_html(sampled, args.out)
     return 0
 
 

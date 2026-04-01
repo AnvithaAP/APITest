@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from orchestrator.query_engine import ParsedQuery, flatten_query, matches_query as evaluate_query, parse_query as parse_advanced_query
+from tagging.tag_validator import normalize_tag_value
 
 
 def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[str]]:
@@ -11,6 +12,8 @@ def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[st
             errors.append(f"invalid tag format '{entry}', expected key=value")
             continue
         key, value = [s.strip() for s in entry.split("=", 1)]
+        key = key.lower()
+        value = normalize_tag_value(value)
         if key in tags:
             errors.append(f"duplicate tag key '{key}'")
             continue
@@ -36,6 +39,8 @@ def matches_query(tags: dict[str, str], query_filters: dict[str, list[str]] | Pa
         actual = tags.get(key)
         if actual is None:
             return False
-        if accepted_values and actual not in accepted_values:
+        actual_values = [normalize_tag_value(v) for v in actual.replace("|", ",").split(",") if v.strip()]
+        normalized_expected = {normalize_tag_value(v) for v in accepted_values}
+        if normalized_expected and set(actual_values).isdisjoint(normalized_expected):
             return False
     return True
