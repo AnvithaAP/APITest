@@ -13,7 +13,7 @@ import subprocess
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Execution router for API test framework")
-    parser.add_argument("--runner", choices=["pytest", "k6", "gatling"], required=True)
+    parser.add_argument("--runner", choices=["pytest", "k6", "gatling", "distributed"], required=True)
     parser.add_argument("--query", default="")
     parser.add_argument("--script", default="")
     parser.add_argument("--parallel", type=int, default=0)
@@ -53,8 +53,12 @@ def main() -> int:
             cmd.append("--dry-run")
     elif args.runner == "k6":
         cmd = [sys.executable, "runners/k6_runner.py", "--query", args.query, "--script", args.script]
-    else:
+    elif args.runner == "gatling":
         cmd = [sys.executable, "runners/gatling_runner.py", "--query", args.query]
+    else:
+        cmd = [sys.executable, "runners/distributed_runner.py", "--query", args.query, "--repo", args.repo, "--repo-type", args.repo_type]
+        if args.parallel > 0:
+            cmd.extend(["--nodes", str(args.parallel)])
 
     return subprocess.call(cmd)
 

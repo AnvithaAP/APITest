@@ -97,12 +97,15 @@ def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
     merged_results = []
     for run in sorted(runs, key=lambda r: r.get("timestamp", "")):
         metrics = run.get("normalized_metrics", {})
+        total = run.get("summary", {}).get("total", 0)
+        failed = run.get("summary", {}).get("failed", 0)
         timeline.append(
             {
                 "timestamp": run.get("timestamp"),
                 "repo": run.get("source_repo"),
                 "scope": run.get("scope"),
-                "failed": run.get("summary", {}).get("failed", 0),
+                "failed": failed,
+                "pass_rate": round(1 - (failed / max(total, 1)), 4),
                 "error_rate": metrics.get("error_rate", 0),
                 "latency_avg_ms": metrics.get("latency_avg_ms", 0),
             }
@@ -130,20 +133,26 @@ def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
                 }
             )
 
+    total_tests = summary.get("total_tests", 0)
+    total_failed = summary.get("total_failed", 0)
+    pass_rate = round(1 - (total_failed / max(total_tests, 1)), 4)
+    failure_budget_used_pct = round((total_failed / max(total_tests, 1)) * 100, 2)
+
     return {
         "kpis": {
             "total_runs": summary.get("total_runs", 0),
-            "total_tests": summary.get("total_tests", 0),
-            "total_failed": summary.get("total_failed", 0),
-            "pass_rate": round(
-                1 - (summary.get("total_failed", 0) / max(summary.get("total_tests", 1), 1)),
-                4,
-            ),
+            "total_tests": total_tests,
+            "total_failed": total_failed,
+            "pass_rate": pass_rate,
         },
         "scope_breakdown": summary.get("scopes", {}),
         "timeline": timeline,
         "repo_cards": repo_cards,
         "merged_results": merged_results,
+        "release_readiness": {
+            "status": "ready" if pass_rate >= 0.95 else "at_risk",
+            "failure_budget_used_pct": failure_budget_used_pct,
+        },
     }
 
 

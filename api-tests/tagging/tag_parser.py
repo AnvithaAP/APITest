@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from orchestrator.query_engine import (
-    ParsedQuery,
-    flatten_query,
-    matches_query as evaluate_query,
-    parse_query as parse_advanced_query,
-    parse_ui_selections,
-)
+from orchestrator.query_engine import ParsedQuery, flatten_query, matches_query as evaluate_query
+from tagging.tag_engine import tag_engine
 from tagging.tag_validator import normalize_tag_value
 
 
@@ -28,16 +23,16 @@ def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[st
 
 
 def parse_query(query: str) -> dict[str, list[str]]:
-    return flatten_query(parse_advanced_query(query))
+    return flatten_query(tag_engine.parse(query))
 
 
 def parse_query_groups(query: str) -> ParsedQuery:
-    return parse_advanced_query(query)
+    return tag_engine.parse(query)
 
 
 
 def parse_ui_query(filters: dict[str, list[str]], group_operator: str = "AND") -> ParsedQuery:
-    return parse_ui_selections(filters, group_operator=group_operator)
+    return tag_engine.from_multiselect(filters, group_operator=group_operator)
 
 def matches_query(tags: dict[str, str], query_filters: dict[str, list[str]] | ParsedQuery) -> bool:
     if isinstance(query_filters, ParsedQuery):
