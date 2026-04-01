@@ -4,24 +4,27 @@ from pathlib import Path
 
 
 def render_trend_html(rows: list[tuple], output_path: str) -> Path:
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    latencies = [float(r[3]) for r in rows]
+    error_rates = [float(r[4]) for r in rows]
+    throughputs = [float(r[5]) for r in rows]
+    x_axis = [str(r[1]) for r in rows]
+
+    chart_html = _render_plotly_charts(x_axis, latencies, error_rates, throughputs)
+    if not chart_html:
+        chart_html = _render_svg_fallback(latencies, error_rates, throughputs)
+
     table_rows = "".join(
         f"<tr><td>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]:.4f}</td><td>{r[4]:.4f}</td><td>{r[5]:.2f}</td></tr>"
         for r in rows
     )
 
-    latencies = [float(r[3]) for r in rows]
-    error_rates = [float(r[4]) for r in rows]
-    throughputs = [float(r[5]) for r in rows]
-
     html = f"""
     <html><body>
     <h1>API Run History & Trends</h1>
-    <h2>Latency Trend</h2>
-    {_sparkline_svg(latencies, '#1f77b4')}
-    <h2>Error Rate Trend</h2>
-    {_sparkline_svg(error_rates, '#d62728')}
-    <h2>Throughput Trend</h2>
-    {_sparkline_svg(throughputs, '#2ca02c')}
+    {chart_html}
     <h2>Historical Comparison</h2>
     {_comparison(latencies, error_rates)}
     <table border='1' cellspacing='0' cellpadding='6'>
@@ -30,10 +33,49 @@ def render_trend_html(rows: list[tuple], output_path: str) -> Path:
     </table>
     </body></html>
     """
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
+    _render_matplotlib_png(rows, out.with_name("history_trends.png"))
     return out
+
+
+def _render_plotly_charts(x_axis: list[str], latencies: list[float], errors: list[float], throughputs: list[float]) -> str:
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except Exception:
+        return ""
+
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, subplot_titles=("Latency", "Error Rate", "Throughput"))
+    fig.add_trace(go.Scatter(x=x_axis, y=latencies, mode="lines+markers", name="Latency"), row=1, col=1)
+    fig.add_trace(go.Bar(x=x_axis, y=errors, name="Error Rate"), row=2, col=1)
+    fig.add_trace(go.Scatter(x=x_axis, y=throughputs, mode="lines+markers", name="Throughput"), row=3, col=1)
+    fig.update_layout(height=900, width=1050, title_text="Historical trend graphs")
+    return fig.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def _render_matplotlib_png(rows: list[tuple], png_path: Path) -> None:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return
+
+    if not rows:
+        return
+    x = list(range(len(rows)))
+    latencies = [float(r[3]) for r in rows]
+    errors = [float(r[4]) for r in rows]
+    throughputs = [float(r[5]) for r in rows]
+
+    fig, axes = plt.subplots(3, 1, figsize=(11, 8), sharex=True)
+    axes[0].plot(x, latencies, marker="o")
+    axes[0].set_title("Latency")
+    axes[1].plot(x, errors, marker="o", color="red")
+    axes[1].set_title("Error Rate")
+    axes[2].plot(x, throughputs, marker="o", color="green")
+    axes[2].set_title("Throughput")
+    fig.tight_layout()
+    fig.savefig(png_path)
+    plt.close(fig)
 
 
 def _comparison(latencies: list[float], errors: list[float]) -> str:
@@ -43,8 +85,17 @@ def _comparison(latencies: list[float], errors: list[float]) -> str:
     prev_e, cur_e = errors[-2], errors[-1]
     lat_delta = ((cur_l - prev_l) / prev_l * 100) if prev_l else 0
     err_delta = ((cur_e - prev_e) / prev_e * 100) if prev_e else 0
+    return f"<p>Latest vs previous: latency {lat_delta:+.2f}% | error rate {err_delta:+.2f}%</p>"
+
+
+def _render_svg_fallback(latencies: list[float], errors: list[float], throughputs: list[float]) -> str:
     return (
-        f"<p>Latest vs previous: latency {lat_delta:+.2f}% | error rate {err_delta:+.2f}%</p>"
+        "<h2>Latency Trend</h2>"
+        + _sparkline_svg(latencies, "#1f77b4")
+        + "<h2>Error Rate Trend</h2>"
+        + _sparkline_svg(errors, "#d62728")
+        + "<h2>Throughput Trend</h2>"
+        + _sparkline_svg(throughputs, "#2ca02c")
     )
 
 

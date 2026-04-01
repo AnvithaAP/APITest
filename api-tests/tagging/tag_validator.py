@@ -41,6 +41,7 @@ RELEASE_PATTERN = re.compile(r"^R\d{4}\.\d{2}-S\d{1,2}$")
 class ValidationResult:
     ok: bool
     errors: list[str]
+    suggestions: list[str]
 
 
 def normalize_tag_value(value: str) -> str:
@@ -49,6 +50,7 @@ def normalize_tag_value(value: str) -> str:
 
 def validate_tags(tags: dict[str, str]) -> ValidationResult:
     errors: list[str] = []
+    suggestions: list[str] = []
 
     normalized_keys = {k.strip().lower() for k in tags}
     missing = sorted(REQUIRED_KEYS - normalized_keys)
@@ -57,12 +59,17 @@ def validate_tags(tags: dict[str, str]) -> ValidationResult:
 
     normalized = {k.strip().lower(): normalize_tag_value(v) for k, v in tags.items()}
 
-    if normalized.get("scope") and normalized["scope"] not in ALLOWED_SCOPE:
+    scope = normalized.get("scope")
+    if scope and scope not in ALLOWED_SCOPE:
         errors.append(f"scope must be one of {sorted(ALLOWED_SCOPE)}")
+        suggestions.append(f"did you mean scope={_closest_match(scope, ALLOWED_SCOPE, 'api')}?")
 
     intent = normalized.get("intent")
     if intent and intent not in ALLOWED_INTENT:
         errors.append(f"intent must be one of {sorted(ALLOWED_INTENT)}")
+        fixed = _closest_match(intent, ALLOWED_INTENT, "functional")
+        suggestions.append(f"did you mean intent={fixed}?")
+        intent = fixed
 
     concern = normalized.get("concern")
     test_type = normalized.get("type")
@@ -71,21 +78,25 @@ def validate_tags(tags: dict[str, str]) -> ValidationResult:
         allowed_concern = CONCERN_BY_INTENT[intent]
         if concern and concern not in allowed_concern:
             errors.append(f"{intent} concern must be one of {sorted(allowed_concern)}")
+            suggestions.append(f"concern suggestion: {_closest_match(concern, allowed_concern, sorted(allowed_concern)[0])}")
 
     if intent in TYPE_BY_INTENT:
         allowed_types = TYPE_BY_INTENT[intent]
         if test_type and test_type not in allowed_types:
             errors.append(f"{intent} type must be one of {sorted(allowed_types)}")
+            suggestions.append(f"type suggestion: {_closest_match(test_type, allowed_types, sorted(allowed_types)[0])}")
 
     module = normalized.get("module")
     if module and module not in ALLOWED_MODULES:
         errors.append(f"module must be one of {sorted(ALLOWED_MODULES)}")
+        suggestions.append(f"module suggestion: {_closest_match(module, ALLOWED_MODULES, 'platform')}")
 
     release = normalized.get("release", tags.get("release", ""))
     if release and not RELEASE_PATTERN.match(release.upper()):
         errors.append("release must match RYYYY.MM-SN (example: R2026.04-S7)")
+        suggestions.append("release suggestion: R2026.04-S1")
 
-    return ValidationResult(ok=not errors, errors=errors)
+    return ValidationResult(ok=not errors, errors=errors, suggestions=suggestions)
 
 
 def suggest_autofix(tags: dict[str, str]) -> str:
@@ -107,6 +118,12 @@ def suggest_autofix(tags: dict[str, str]) -> str:
             incoming = _closest_match(incoming, ALLOWED_INTENT, default)
         if key == "scope" and incoming not in ALLOWED_SCOPE:
             incoming = default
+        if key == "concern" and merged.get("intent") in CONCERN_BY_INTENT:
+            allowed = CONCERN_BY_INTENT[merged["intent"]]
+            incoming = incoming if incoming in allowed else sorted(allowed)[0]
+        if key == "type" and merged.get("intent") in TYPE_BY_INTENT:
+            allowed = TYPE_BY_INTENT[merged["intent"]]
+            incoming = incoming if incoming in allowed else sorted(allowed)[0]
         if key == "release":
             release_raw = tags.get("release", default).upper()
             incoming = release_raw if RELEASE_PATTERN.match(release_raw) else default

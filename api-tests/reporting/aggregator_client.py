@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 from pathlib import Path
 import shutil
@@ -15,27 +16,27 @@ def merge_canonical_reports(paths: list[str], output_path: str, copy_allure_to: 
             merged_runs.append(payload)
 
     normalized = [_normalize_run(run) for run in merged_runs]
-    by_scope = _group_summary(normalized)
+    summary = _build_summary(normalized)
+    dashboard = _build_dashboard_payload(normalized, summary)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(
             {
-                "schema_version": "2.0",
+                "schema_version": "3.0",
                 "aggregated_from": paths,
                 "runs": normalized,
-                "summary": {
-                    "total_runs": len(normalized),
-                    "total_tests": sum(run.get("summary", {}).get("total", 0) for run in normalized),
-                    "total_failed": sum(run.get("summary", {}).get("failed", 0) for run in normalized),
-                    "scopes": by_scope,
-                },
+                "summary": summary,
+                "dashboard": dashboard,
             },
             indent=2,
         ),
         encoding="utf-8",
     )
+
+    dashboard_out = out.with_name("dashboard_ready.json")
+    dashboard_out.write_text(json.dumps(dashboard, indent=2), encoding="utf-8")
 
     if copy_allure_to:
         aggregate_allure_results(paths, copy_allure_to)
@@ -44,7 +45,7 @@ def merge_canonical_reports(paths: list[str], output_path: str, copy_allure_to: 
 
 
 def _normalize_run(run: dict) -> dict:
-    scope = (run.get("scope") or "api").lower()
+    scope = (run.get("scope") or run.get("repo_type") or "api").lower()
     intent = (run.get("intent") or "unknown").lower()
     results = run.get("results", [])
     duration_total = sum(float(r.get("duration", 0) or 0) for r in results)
@@ -60,14 +61,80 @@ def _normalize_run(run: dict) -> dict:
     return run
 
 
-def _group_summary(runs: list[dict]) -> dict:
+def _build_summary(runs: list[dict]) -> dict:
     scopes = {"ui": 0, "api": 0, "e2e": 0, "device": 0, "other": 0}
+    scope_runs = defaultdict(int)
     for run in runs:
         scope = run.get("scope", "other")
         if scope not in scopes:
             scope = "other"
-        scopes[scope] += run.get("summary", {}).get("total", 0)
-    return scopes
+        test_count = run.get("summary", {}).get("total", 0)
+        scopes[scope] += test_count
+        scope_runs[scope] += 1
+
+    return {
+        "total_runs": len(runs),
+        "total_tests": sum(run.get("summary", {}).get("total", 0) for run in runs),
+        "total_failed": sum(run.get("summary", {}).get("failed", 0) for run in runs),
+        "scopes": scopes,
+        "runs_by_scope": dict(scope_runs),
+    }
+
+
+def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
+    timeline = []
+    repo_cards = []
+    merged_results = []
+    for run in sorted(runs, key=lambda r: r.get("timestamp", "")):
+        metrics = run.get("normalized_metrics", {})
+        timeline.append(
+            {
+                "timestamp": run.get("timestamp"),
+                "repo": run.get("source_repo"),
+                "scope": run.get("scope"),
+                "failed": run.get("summary", {}).get("failed", 0),
+                "error_rate": metrics.get("error_rate", 0),
+                "latency_avg_ms": metrics.get("latency_avg_ms", 0),
+            }
+        )
+        repo_cards.append(
+            {
+                "repo": run.get("source_repo"),
+                "run_id": run.get("run_id"),
+                "scope": run.get("scope"),
+                "intent": run.get("intent"),
+                "total": run.get("summary", {}).get("total", 0),
+                "failed": run.get("summary", {}).get("failed", 0),
+                "query": run.get("query", ""),
+            }
+        )
+        for result in run.get("results", []):
+            merged_results.append(
+                {
+                    "repo": run.get("source_repo"),
+                    "run_id": run.get("run_id"),
+                    "test": result.get("test_name"),
+                    "status": result.get("status"),
+                    "duration": result.get("duration", 0),
+                    "tags": result.get("tags", {}),
+                }
+            )
+
+    return {
+        "kpis": {
+            "total_runs": summary.get("total_runs", 0),
+            "total_tests": summary.get("total_tests", 0),
+            "total_failed": summary.get("total_failed", 0),
+            "pass_rate": round(
+                1 - (summary.get("total_failed", 0) / max(summary.get("total_tests", 1), 1)),
+                4,
+            ),
+        },
+        "scope_breakdown": summary.get("scopes", {}),
+        "timeline": timeline,
+        "repo_cards": repo_cards,
+        "merged_results": merged_results,
+    }
 
 
 def aggregate_allure_results(canonical_paths: list[str], output_dir: str) -> Path:

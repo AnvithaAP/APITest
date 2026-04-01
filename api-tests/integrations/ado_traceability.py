@@ -10,6 +10,7 @@ def build_ado_traceability_payload(canonical_path: str, run_url: str = "") -> di
     for result in canonical.get("results", []):
         tags = result.get("tags", {})
         pbi_id = tags.get("pbi") or tags.get("ado-pbi") or ""
+        test_case_id = tags.get("testcase") or tags.get("ado-testcase") or result.get("test_name")
         tests.append(
             {
                 "automatedTestName": result.get("test_name"),
@@ -18,8 +19,15 @@ def build_ado_traceability_payload(canonical_path: str, run_url: str = "") -> di
                 "module": tags.get("module", "platform"),
                 "traceability": {
                     "pbiId": pbi_id,
-                    "testCaseRef": tags.get("testcase", result.get("test_name")),
-                    "resultRef": canonical.get("run_id"),
+                    "testCaseRef": test_case_id,
+                    "automationRef": {
+                        "repository": canonical.get("source_repo"),
+                        "pipelineRun": canonical.get("run_id"),
+                    },
+                    "resultRef": {
+                        "runId": canonical.get("run_id"),
+                        "status": result.get("status"),
+                    },
                 },
                 "automationDetails": {
                     "query": canonical.get("query", ""),
@@ -32,6 +40,7 @@ def build_ado_traceability_payload(canonical_path: str, run_url: str = "") -> di
         "runId": canonical.get("run_id"),
         "sourceRepo": canonical.get("source_repo"),
         "timestamp": canonical.get("timestamp"),
+        "traceabilityChain": "PBI -> Test Case -> Automation -> Result",
         "results": tests,
     }
 

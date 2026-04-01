@@ -6,7 +6,14 @@ from pathlib import Path
 import uuid
 
 
-def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, list[str]], source_repo: str = "api-tests") -> dict:
+def build_canonical_report(
+    pytest_json: dict,
+    query: str,
+    tags: dict[str, list[str]],
+    source_repo: str = "api-tests",
+    repo_type: str = "api",
+    metadata: dict | None = None,
+) -> dict:
     tests = pytest_json.get("tests", [])
     results = []
     for test in tests:
@@ -22,14 +29,16 @@ def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, list[s
 
     summary = pytest_json.get("summary", {})
     return {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "run_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source_repo": source_repo,
-        "scope": _first_value(tags.get("scope"), "api"),
+        "repo_type": repo_type,
+        "scope": _first_value(tags.get("scope"), repo_type),
         "intent": _first_value(tags.get("intent"), "unknown"),
         "query": query,
         "query_tags": tags,
+        "metadata": metadata or {},
         "results": results,
         "summary": {
             "total": summary.get("total", len(results)),

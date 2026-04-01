@@ -1,19 +1,15 @@
 # Enterprise API Testing Framework
 
-A production-oriented API quality platform with modular layers for **functional**, **performance**, and **governance** testing.
+A production-oriented quality platform with **intelligence layer**, **cross-repo orchestration**, **real aggregation**, and **dashboard-ready outputs**.
 
 ## Delivered Capabilities
-- Full orchestrator with **single repo** and **multi-repo trigger** modes.
-- Tag query engine with **AND/OR** logic and comma value unions.
-- Strict `tag_guard` enforcement with **auto-fix** utilities.
-- Canonical reporting + HTML + Allure output and cross-repo aggregation.
-- SQLite-backed run history with trend graphs.
-- k6 and Gatling runner integrations.
-- Schema validation and backward-compatibility diff engine.
-- Governance engine for convention and standards checks.
-- Azure DevOps traceability payload generation hooks.
-- GitLab pipeline suitable for production bootstrap.
-- VSCode tasks/settings for tag enforcement workflows.
+- Advanced tag query engine with **AND/OR grouping**, parenthesis, multi-select conversion, and **tag inheritance**.
+- Tag guard with **auto-fix + AI-style suggestions** for invalid taxonomy values.
+- Full multi-repo orchestrator for GitLab CI with parallel triggers across **UI/API/E2E/Device** repos.
+- Canonical aggregation engine that merges multi-repo JSON and emits **dashboard_ready.json**.
+- Allure full integration with hooks, executor/environment metadata, attachments, and step-level reporting.
+- Trend analytics with **Plotly/Matplotlib charts** + historical delta comparison.
+- Azure DevOps traceability payload for **PBI → Test Case → Automation → Result** mapping.
 
 ## Modular Structure
 ```
@@ -30,32 +26,27 @@ api-tests/
   artifacts/                 # generated outputs
 ```
 
-## Tagging (Enforced Entry Point)
-Every pytest test must carry one `@pytest.mark.tag(...)` marker with required keys:
-- `scope`, `intent`, `concern`, `type`, `module`, `release`
-
-Auto-fix invalid or missing tags:
-```bash
-python tagging/tag_autofix.py functional governance
-```
-
-## Query Engine
+## Tag Query Engine (USP)
 Examples:
 ```bash
 # AND
 scope=api AND intent=functional AND type=regression
 
-# OR groups
-intent=functional AND module=users OR intent=performance AND concern=latency
+# OR groups with parenthesis
+scope=api AND (intent=functional OR intent=performance)
 ```
 
-## Orchestrator
+Tag inheritance examples:
+- `scope=e2e` can match `scope=ui` and `scope=api`.
+- `scope=device` can match `scope=api`.
+
+## Cross-Repo Orchestrator
 Run local orchestrator:
 ```bash
 python orchestrator/execution_router.py --runner pytest --query "scope=api AND intent=functional"
 ```
 
-Run multi-repo orchestrator:
+Run full multi-repo orchestration:
 ```bash
 python orchestrator/execution_router.py --runner pytest --repos-file repos.json --query "scope=api"
 ```
@@ -64,42 +55,51 @@ python orchestrator/execution_router.py --runner pytest --repos-file repos.json 
 ```json
 {
   "repos": [
-    {"name": "repo-a", "path": "/workspace/repo-a", "query": "scope=api AND intent=functional"},
-    {"name": "repo-b", "path": "/workspace/repo-b", "query": "scope=api AND intent=performance"}
+    {
+      "name": "ui-tests",
+      "path": "/workspace/ui-tests",
+      "repo_type": "ui",
+      "runner": "pytest",
+      "query": "scope=ui AND intent=functional",
+      "parallel": 4
+    },
+    {
+      "name": "api-tests",
+      "path": "/workspace/api-tests",
+      "repo_type": "api",
+      "runner": "pytest",
+      "query": "scope=api AND intent=functional"
+    },
+    {
+      "name": "e2e-tests",
+      "path": "/workspace/e2e-tests",
+      "repo_type": "e2e",
+      "runner": "pytest",
+      "query": "scope=e2e"
+    }
   ]
 }
 ```
 
-## Performance Layer
-k6:
-```bash
-python runners/k6_runner.py --script performance/latency/k6_latency.js --query "intent=performance"
-```
+## Aggregation + Dashboard Output
+Produced under `artifacts/`:
+- `aggregated_canonical.json`
+- `dashboard_ready.json`
+- `orchestrator_results.json`
+- `gitlab_orchestrator_summary.json`
+- `allure-results-merged/`
 
-Gatling:
-```bash
-python runners/gatling_runner.py --simulation BasicSimulation --query "intent=performance"
-```
+## Trend Graphs (Real Charts)
+`history/html_trend_report.py` produces:
+- interactive Plotly charts (when available)
+- matplotlib PNG export (`history_trends.png`)
+- HTML report (`history_trends.html`)
 
-## Reporting + History
-Outputs under `artifacts/`:
-- `canonical_run.json`
-- `html_report.html`
-- `allure-results/`
-- `history.db`
-- `history_trends.html`
-- `ado_traceability.json`
+## Azure DevOps Traceability
+`integrations/ado_traceability.py` creates payloads that align:
+**PBI → Test Case → Automation Repo/Run → Result**.
 
 ## Schema Validation + Diff
 ```bash
 python core/validators/schema_diff_cli.py --old schemas/responses/user_v1.json --new schemas/versions/user_v2.json --strict
 ```
-
-## GitLab Base Pipeline
-Use `.gitlab-ci.yml` to validate tags/schema, run functional + governance + perf, and publish canonical/history/ADO artifacts.
-
-## VSCode Integration
-- `Tag Guard: Validate`
-- `Tag Guard: Auto-fix`
-
-Configured under `.vscode/tasks.json` and `.vscode/settings.json`.

@@ -26,6 +26,7 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--repo", default="api-tests")
+    parser.add_argument("--repo-type", default="api")
     args = parser.parse_args()
 
     report_path = Path("artifacts/pytest_report.json")
@@ -50,7 +51,8 @@ def main() -> int:
     raw = json.loads(report_path.read_text(encoding="utf-8"))
     query_tags = parse_query(args.query)
 
-    canonical = build_canonical_report(raw, args.query, query_tags, source_repo=args.repo)
+    metadata = {"orchestrator": "gitlab", "intelligence_layer": "enabled"}
+    canonical = build_canonical_report(raw, args.query, query_tags, source_repo=args.repo, repo_type=args.repo_type, metadata=metadata)
     write_canonical_report(canonical)
     write_allure_results(canonical)
     render_html_report(canonical)

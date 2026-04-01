@@ -11,10 +11,12 @@ import time
 from reporting.aggregator_client import merge_canonical_reports
 
 
-def run_repo(repo: dict, default_query: str, runner: str) -> dict:
+def run_repo(repo: dict, default_query: str, default_runner: str) -> dict:
     repo_name = repo.get("name", repo["path"])
     query = repo.get("query", default_query)
+    runner = repo.get("runner", default_runner)
     started = time.time()
+    repo_type = repo.get("repo_type", "api")
     cmd = [
         sys.executable,
         "orchestrator/execution_router.py",
@@ -22,13 +24,25 @@ def run_repo(repo: dict, default_query: str, runner: str) -> dict:
         runner,
         "--query",
         query,
+        "--repo",
+        repo_name,
+        "--repo-type",
+        repo_type,
     ]
+
+    if repo.get("script"):
+        cmd.extend(["--script", repo["script"]])
+    if repo.get("parallel"):
+        cmd.extend(["--parallel", str(repo["parallel"])])
+
     rc = subprocess.call(cmd, cwd=repo["path"])
     duration = time.time() - started
     canonical = Path(repo["path"]) / "artifacts" / "canonical_run.json"
     return {
         "name": repo_name,
         "path": repo["path"],
+        "repo_type": repo_type,
+        "runner": runner,
         "query": query,
         "rc": rc,
         "duration_s": round(duration, 3),
@@ -62,6 +76,7 @@ def main() -> int:
 
     out = Path(args.results_out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    ordered_results = sorted(results, key=lambda x: x["name"])
     out.write_text(
         json.dumps(
             {
@@ -69,18 +84,44 @@ def main() -> int:
                 "total_repos": len(repos),
                 "successful": sum(1 for r in results if r["rc"] == 0),
                 "failed": [r["name"] for r in results if r["rc"] != 0],
-                "results": sorted(results, key=lambda x: x["name"]),
+                "results": ordered_results,
             },
             indent=2,
         ),
         encoding="utf-8",
     )
 
+    _write_gitlab_summary(ordered_results)
+
     failed = [r["name"] for r in results if r["rc"] != 0]
     if failed:
         print(f"Orchestration failed in: {', '.join(failed)}")
         return 1
     return 0
+
+
+def _write_gitlab_summary(results: list[dict]) -> None:
+    out = Path("artifacts/gitlab_orchestrator_summary.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    by_type: dict[str, dict[str, int]] = {}
+    for item in results:
+        repo_type = item.get("repo_type", "unknown")
+        bucket = by_type.setdefault(repo_type, {"total": 0, "failed": 0})
+        bucket["total"] += 1
+        bucket["failed"] += int(item.get("rc", 0) != 0)
+
+    out.write_text(
+        json.dumps(
+            {
+                "schema": "gitlab-orchestrator-v1",
+                "generated_at": time.time(),
+                "repo_types": by_type,
+                "results": results,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":

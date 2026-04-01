@@ -20,6 +20,8 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=0)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--repos-file", default="")
+    parser.add_argument("--repo", default="api-tests")
+    parser.add_argument("--repo-type", default="api")
     parser.add_argument("--aggregate-out", default="artifacts/aggregated_canonical.json")
     parser.add_argument("--results-out", default="artifacts/orchestrator_results.json")
     args = parser.parse_args()
@@ -42,7 +44,7 @@ def main() -> int:
             args.results_out,
         ]
     elif args.runner == "pytest":
-        cmd = [sys.executable, "runners/pytest_runner.py", "--query", args.query]
+        cmd = [sys.executable, "runners/pytest_runner.py", "--query", args.query, "--repo", args.repo, "--repo-type", args.repo_type]
         if args.parallel > 0:
             cmd.extend(["--parallel", str(args.parallel)])
         if args.retries > 0:

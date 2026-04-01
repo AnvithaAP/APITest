@@ -38,7 +38,8 @@ class TagGuard:
             validation = validate_tags(tags)
             if not validation.ok:
                 fix = suggest_autofix(tags)
-                errors.append(f"{item.nodeid}: {validation.errors} | suggested fix: {fix}")
+                hints = f" suggestions={validation.suggestions}" if validation.suggestions else ""
+                errors.append(f"{item.nodeid}: {validation.errors}{hints} | suggested fix: {fix}")
         return errors
 
 
