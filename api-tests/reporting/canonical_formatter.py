@@ -6,7 +6,7 @@ from pathlib import Path
 import uuid
 
 
-def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, str]) -> dict:
+def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, list[str]], source_repo: str = "api-tests") -> dict:
     tests = pytest_json.get("tests", [])
     results = []
     for test in tests:
@@ -16,18 +16,20 @@ def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, str]) 
                 "status": test.get("outcome"),
                 "duration": test.get("call", {}).get("duration", 0),
                 "metrics": test.get("keywords", {}),
-                "tags": tags,
+                "tags": test.get("tags", {}),
             }
         )
 
     summary = pytest_json.get("summary", {})
     return {
+        "schema_version": "1.1",
         "run_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "scope": tags.get("scope", "api"),
-        "intent": tags.get("intent", "unknown"),
+        "source_repo": source_repo,
+        "scope": _first_value(tags.get("scope"), "api"),
+        "intent": _first_value(tags.get("intent"), "unknown"),
         "query": query,
-        "tags": tags,
+        "query_tags": tags,
         "results": results,
         "summary": {
             "total": summary.get("total", len(results)),
@@ -36,6 +38,12 @@ def build_canonical_report(pytest_json: dict, query: str, tags: dict[str, str]) 
             "skipped": summary.get("skipped", 0),
         },
     }
+
+
+def _first_value(values: list[str] | None, default: str) -> str:
+    if not values:
+        return default
+    return values[0]
 
 
 def write_canonical_report(report: dict, output_path: str = "artifacts/canonical_run.json") -> Path:
