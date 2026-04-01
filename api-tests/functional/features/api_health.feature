@@ -4,9 +4,9 @@
 @type:smoke
 @module:platform
 @release:R2026.04-S1
-Feature: API health endpoint behavior
+Feature: API health and readiness
 
-  Scenario: Health endpoint returns success
-    Given the API base URL is configured
-    When a health check is simulated
-    Then the health result should be healthy
+  Scenario: Readiness endpoint returns healthy payload
+    Given the readiness endpoint is reachable
+    When I request the readiness status
+    Then the API should report healthy

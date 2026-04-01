@@ -9,7 +9,7 @@ ALLOWED_SCOPE = {"api", "ui", "e2e", "device"}
 ALLOWED_INTENT = {"functional", "performance", "security", "reliability", "governance"}
 
 CONCERN_BY_INTENT = {
-    "functional": {"contract", "data", "behavior", "error", "auth"},
+    "functional": {"contract", "data", "behavior", "error", "auth", "availability", "headers"},
     "performance": {"latency", "capacity", "scalability", "stability"},
     "security": {"authn", "authz", "injection", "secrets", "transport"},
     "reliability": {"resilience", "timeouts", "retry", "chaos", "recovery"},
