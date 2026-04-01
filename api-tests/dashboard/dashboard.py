@@ -5,6 +5,33 @@ import json
 from pathlib import Path
 
 
+def _try_render_matplotlib_charts(aggregated_payload: dict, output_path: Path) -> str:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return ""
+
+    dashboard = aggregated_payload.get("dashboard", {})
+    timeline = dashboard.get("timeline", [])
+    labels = [item.get("timestamp", "") for item in timeline]
+    latency = [item.get("latency_avg_ms", 0) for item in timeline]
+    errors = [item.get("error_rate", 0) for item in timeline]
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6), constrained_layout=True)
+    axes[0].plot(labels, latency, marker="o")
+    axes[0].set_title("Latency Trend (ms)")
+    axes[0].tick_params(axis="x", rotation=45)
+
+    axes[1].plot(labels, errors, marker="o", color="tab:red")
+    axes[1].set_title("Error Rate Trend")
+    axes[1].tick_params(axis="x", rotation=45)
+
+    png_path = output_path.with_name("dashboard_trends.png")
+    fig.savefig(png_path, dpi=120)
+    plt.close(fig)
+    return png_path.name
+
+
 def build_dashboard_html(aggregated_payload: dict) -> str:
     dashboard = aggregated_payload.get("dashboard", {})
     kpis = dashboard.get("kpis", {})
@@ -68,10 +95,15 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
 
 def render_dashboard(aggregated_json_path: str, output_path: str = "artifacts/dashboard.html") -> Path:
     aggregated = json.loads(Path(aggregated_json_path).read_text(encoding="utf-8"))
-    html = build_dashboard_html(aggregated)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    png_name = _try_render_matplotlib_charts(aggregated, out)
+
+    html = build_dashboard_html(aggregated)
+    if png_name:
+        html = html.replace("</body>", f"<h2>Static Trends (Matplotlib)</h2><img src='{png_name}' style='max-width:100%;border:1px solid #ddd;'/>\n</body>")
+
     out.write_text(html, encoding="utf-8")
     return out
 

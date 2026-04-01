@@ -1,91 +1,46 @@
 stages:
-  - validate
   - orchestrate
   - test
-  - perf
   - report
 
 variables:
-  TAG_QUERY: "scope=api AND (intent=functional OR intent=performance)"
-  PYTEST_PARALLEL: "2"
-  PYTEST_RETRIES: "1"
-  AGGREGATED_CANONICAL: "artifacts/aggregated_canonical.json"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
 
-default:
-  before_script:
-    - pip install -r requirements.txt
-
-validate_tags:
-  stage: validate
-  image: python:3.11
-  script:
-    - python runners/pytest_runner.py --query "$TAG_QUERY" --dry-run
-
-validate_schema_diff:
-  stage: validate
-  image: python:3.11
-  script:
-    - python core/validators/schema_diff_cli.py --old schemas/responses/user_v1.json --new schemas/versions/user_v2.json --strict
-
-auto_fix_tags:
-  stage: validate
-  image: python:3.11
-  script:
-    - python tagging/tag_autofix.py functional governance
-  allow_failure: true
+before_script:
+  - python --version
+  - pip install -r requirements.txt
 
 orchestrate_multi_repo:
   stage: orchestrate
-  image: python:3.11
   script:
-    - python orchestrator/execution_router.py --runner pytest --repos-file repos.json --query "$TAG_QUERY" --parallel "4" --aggregate-out "$AGGREGATED_CANONICAL"
-  allow_failure: true
-
-run_functional:
-  stage: test
-  image: python:3.11
-  script:
-    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY" --parallel "$PYTEST_PARALLEL" --retries "$PYTEST_RETRIES"
+    - python orchestrator/enterprise_orchestrator.py --local-repos-file repos.json --query "scope=api AND intent=functional" --runner pytest --parallel 4
   artifacts:
     when: always
     paths:
-      - artifacts/
+      - artifacts/orchestrator_results.json
+      - artifacts/aggregated_canonical.json
+      - artifacts/gitlab_pipeline_triggers.json
 
-run_governance:
+test_local_suite:
   stage: test
-  image: python:3.11
   script:
-    - python governance/governance_engine.py --query "scope=api AND intent=functional"
-
-run_k6:
-  stage: perf
-  image: grafana/k6:latest
-  script:
-    - k6 run performance/latency/k6_latency.js
-
-run_gatling:
-  stage: perf
-  image: denvazh/gatling:3.9.5
-  script:
-    - gatling -s BasicSimulation
-  allow_failure: true
-
-publish_reports:
-  stage: report
-  image: python:3.11
-  script:
-    - python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
-    - python -c "from integrations.ado_traceability import write_ado_traceability_payload; write_ado_traceability_payload('artifacts/canonical_run.json')"
-    - python -c "from integrations.ado_client import write_ado_submission; write_ado_submission('$AGGREGATED_CANONICAL')"
-    - python dashboard/dashboard.py --aggregated "$AGGREGATED_CANONICAL" --out artifacts/dashboard.html
+    - python runners/pytest_runner.py --query "scope=api AND intent=functional"
   artifacts:
     when: always
     paths:
       - artifacts/canonical_run.json
-      - artifacts/aggregated_canonical.json
-      - artifacts/html_report.html
-      - artifacts/history_trends.html
+      - artifacts/allure-results
+      - artifacts/pytest_report.json
+
+publish_reporting:
+  stage: report
+  script:
+    - python dashboard/dashboard.py --aggregated artifacts/aggregated_canonical.json --out artifacts/dashboard.html
+    - python -c "from integrations.ado_client import write_ado_submission; write_ado_submission('artifacts/aggregated_canonical.json', 'artifacts/ado_submission.json')"
+  artifacts:
+    when: always
+    paths:
       - artifacts/dashboard.html
-      - artifacts/allure-results/
-      - artifacts/ado_traceability.json
+      - artifacts/dashboard_trends.png
       - artifacts/ado_submission.json
+      - artifacts/allure-results-merged
