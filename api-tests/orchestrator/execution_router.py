@@ -10,7 +10,6 @@ if str(ROOT) not in sys.path:
 import argparse
 import json
 import subprocess
-import sys
 
 
 def _build_command(runner: str, query: str, script: str, tag_guard_mode: str, tag_autofix: bool) -> list[str]:
@@ -55,12 +54,6 @@ def main() -> int:
     parser.add_argument("--runner", choices=["pytest", "k6", "gatling"], required=True)
     parser.add_argument("--query", default="")
     parser.add_argument("--script", default="")
-    parser.add_argument("--repos-file", default="")
-    parser.add_argument("--tag-guard-mode", default="strict", choices=["strict", "warn"])
-    parser.add_argument("--tag-autofix", action="store_true")
-    args = parser.parse_args()
-
-    cmd = _build_command(args.runner, args.query, args.script, args.tag_guard_mode, args.tag_autofix)
 
     if args.repos_file:
         return _run_multi_repo(cmd, Path(args.repos_file))

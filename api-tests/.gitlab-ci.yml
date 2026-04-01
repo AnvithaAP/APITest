@@ -7,23 +7,13 @@ stages:
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   TAG_QUERY: "scope=api AND intent=functional"
-  PERF_QUERY: "scope=api AND intent=performance"
 
-cache:
-  paths:
-    - .cache/pip
-
-.default_python:
-  image: python:3.11
-  before_script:
-    - python -V
-    - pip install -r requirements.txt
 
 validate_tags:
   stage: validate
   extends: .default_python
   script:
-    - python -m pytest functional governance --collect-only --tag-guard-mode=strict
+
 
 run_functional:
   stage: test

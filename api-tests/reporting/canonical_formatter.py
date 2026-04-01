@@ -6,7 +6,7 @@ from pathlib import Path
 import uuid
 
 
-def build_canonical_report(pytest_json: dict, query: str) -> dict:
+
     tests = pytest_json.get("tests", [])
     results = []
     for test in tests:
@@ -22,11 +22,10 @@ def build_canonical_report(pytest_json: dict, query: str) -> dict:
 
     summary = pytest_json.get("summary", {})
     return {
+        "schema_version": "1.1",
         "run_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "scope": "api",
-        "intent": "mixed",
-        "query": query,
+
         "results": results,
         "summary": {
             "total": summary.get("total", len(results)),
@@ -35,6 +34,12 @@ def build_canonical_report(pytest_json: dict, query: str) -> dict:
             "skipped": summary.get("skipped", 0),
         },
     }
+
+
+def _first_value(values: list[str] | None, default: str) -> str:
+    if not values:
+        return default
+    return values[0]
 
 
 def write_canonical_report(report: dict, output_path: str = "artifacts/canonical_run.json") -> Path:

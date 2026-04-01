@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tagging.tag_guard import TagGuard
-from tagging.tag_parser import parse_tag_entries
+
 
 
 class ResultCollector:
@@ -19,11 +19,6 @@ class ResultCollector:
         rep = outcome.get_result()
         if rep.when != "call":
             return
-
-        marker = item.get_closest_marker("tag")
-        tags = {}
-        if marker:
-            tags, _ = parse_tag_entries(tuple(marker.args))
 
         self.tests.append(
             {
@@ -48,10 +43,7 @@ class ResultCollector:
 collector = ResultCollector()
 
 
-def pytest_addoption(parser: pytest.Parser) -> None:
-    group = parser.getgroup("tag-guard")
-    group.addoption("--tag-guard-mode", action="store", default="strict", choices=["strict", "warn"])
-    group.addoption("--tag-autofix", action="store_true", default=False)
+
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -65,8 +57,3 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
     if errors and strict:
         formatted = "\n".join(f"- {e}" for e in errors)
         raise pytest.UsageError(f"Tag guard validation failed:\n{formatted}")
-    if errors:
-        reporter = config.pluginmanager.get_plugin("terminalreporter")
-        if reporter:
-            for error in errors:
-                reporter.write_line(f"Tag guard warning: {error}", yellow=True)

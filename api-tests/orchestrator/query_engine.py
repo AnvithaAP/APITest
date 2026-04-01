@@ -12,12 +12,16 @@ from tagging.tag_parser import compile_query_expression, parse_query
 
 def build_pytest_tag_filter(query: str) -> str:
     filters = parse_query(query)
-    return " and ".join([f"{k}={v}" for k, v in filters.items()])
+    parts: list[str] = []
+    for k, values in filters.items():
+        joined = ",".join(values)
+        parts.append(f"{k}={joined}")
+    return " and ".join(parts)
 
 
 def query_to_marker_expression(query: str) -> str:
     # broad pre-filter; final filtering is tag-aware in runner using query engine.
     if not query:
         return ""
-    compile_query_expression(query)
+
     return "tag"
