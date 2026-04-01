@@ -1,0 +1,48 @@
+stages:
+  - validate
+  - test
+  - report
+
+variables:
+  TAG_QUERY: "scope=api AND intent=functional"
+
+validate_tags:
+  stage: validate
+  image: python:3.11
+  script:
+    - pip install -r requirements.txt
+    - python -m pytest functional governance --collect-only
+
+run_functional:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install -r requirements.txt
+    - python orchestrator/execution_router.py --runner pytest --query "$TAG_QUERY"
+  artifacts:
+    when: always
+    paths:
+      - artifacts/
+
+run_performance:
+  stage: test
+  image: grafana/k6:latest
+  script:
+    - k6 run performance/latency/k6_latency.js
+  artifacts:
+    when: always
+    paths:
+      - artifacts/
+
+publish_reports:
+  stage: report
+  image: python:3.11
+  script:
+    - python history/trend_analyzer.py --db artifacts/history.db --out artifacts/history_trends.html
+  artifacts:
+    when: always
+    paths:
+      - artifacts/canonical_run.json
+      - artifacts/html_report.html
+      - artifacts/history_trends.html
+      - artifacts/allure-results/

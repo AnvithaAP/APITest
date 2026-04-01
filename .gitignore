@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+api-tests/artifacts/*.db
+api-tests/artifacts/*.json
+api-tests/artifacts/*.html
+api-tests/artifacts/allure-results/

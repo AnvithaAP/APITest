@@ -1,0 +1,16 @@
+{
+  "API Tag Block": {
+    "scope": "python",
+    "prefix": "apitags",
+    "body": [
+      "@pytest.mark.tag(",
+      "    \"scope=api\",",
+      "    \"intent=${1|functional,performance|}\",",
+      "    \"concern=${2|contract,data,behavior,error,auth,latency,capacity,scalability,stability|}\",",
+      "    \"type=${3|smoke,sanity,regression,system,load,stress,spike,soak,benchmark|}\",",
+      "    \"module=${4:users}\"",
+      ")"
+    ],
+    "description": "Required structured tags for API tests"
+  }
+}

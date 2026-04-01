@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "API Test Tag Schema",
+  "type": "object",
+  "required": ["scope", "intent", "concern", "type", "module"],
+  "properties": {
+    "scope": {"const": "api"},
+    "intent": {"enum": ["functional", "performance"]},
+    "concern": {
+      "enum": [
+        "contract", "data", "behavior", "error", "auth",
+        "latency", "capacity", "scalability", "stability"
+      ]
+    },
+    "type": {
+      "enum": [
+        "smoke", "sanity", "regression", "system",
+        "load", "stress", "spike", "soak", "benchmark"
+      ]
+    },
+    "module": {"type": "string"}
+  }
+}
