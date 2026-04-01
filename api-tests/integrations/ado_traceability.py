@@ -9,12 +9,18 @@ def build_ado_traceability_payload(canonical_path: str, run_url: str = "") -> di
     tests = []
     for result in canonical.get("results", []):
         tags = result.get("tags", {})
+        pbi_id = tags.get("pbi") or tags.get("ado-pbi") or ""
         tests.append(
             {
                 "automatedTestName": result.get("test_name"),
                 "outcome": result.get("status"),
                 "release": tags.get("release", canonical.get("timestamp", "")),
                 "module": tags.get("module", "platform"),
+                "traceability": {
+                    "pbiId": pbi_id,
+                    "testCaseRef": tags.get("testcase", result.get("test_name")),
+                    "resultRef": canonical.get("run_id"),
+                },
                 "automationDetails": {
                     "query": canonical.get("query", ""),
                     "runUrl": run_url,
