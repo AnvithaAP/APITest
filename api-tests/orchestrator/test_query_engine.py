@@ -10,14 +10,14 @@ def test_build_query_string_from_structured_filters() -> None:
     query = build_query_string(
         {
             "scope": ["api"],
-            "intent": ["functional", "performance"],
+            "intent": ["functional"],
             "concern": ["security"],
             "type": ["regression"],
             "module": ["billing"],
         },
         group_operator="AND",
     )
-    assert query == "scope=api AND (intent=functional OR intent=performance) AND concern=security AND type=regression AND module=billing"
+    assert query == "scope=api AND intent=functional AND concern=security AND type=regression AND module=billing"
 
 
 @pytest.mark.tag("scope=api", "intent=functional", "concern=auth", "type=smoke", "module=platform", "release=R2026.04-S7")
@@ -50,3 +50,9 @@ def test_parse_nested_tree_supports_grouping_logic() -> None:
         }
     )
     assert len(parsed.groups) == 4
+
+
+@pytest.mark.tag("scope=api", "intent=functional", "concern=auth", "type=smoke", "module=platform", "release=R2026.04-S7")
+def test_parse_query_rejects_invalid_intent_type_combo() -> None:
+    with pytest.raises(ValueError):
+        parse_query("intent=functional AND type=load")

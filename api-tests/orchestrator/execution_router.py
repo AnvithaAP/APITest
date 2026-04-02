@@ -10,6 +10,8 @@ if str(ROOT) not in sys.path:
 import argparse
 import subprocess
 
+from orchestrator.query_engine import parse_query
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Execution router for API test framework")
@@ -25,6 +27,9 @@ def main() -> int:
     parser.add_argument("--aggregate-out", default="artifacts/aggregated_canonical.json")
     parser.add_argument("--results-out", default="artifacts/orchestrator_results.json")
     args = parser.parse_args()
+
+    if args.query.strip():
+        parse_query(args.query)
 
     if args.repos_file:
         cmd = [
