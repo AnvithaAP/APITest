@@ -195,6 +195,20 @@ Every pytest execution is now exported as:
 
 This allows each repository to publish a standard artifact that can be merged into a single dashboard feed.
 
+
+### Local pre-commit enforcement
+
+Install the repository-managed Git hook so commits are blocked when tag rules are violated:
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit
+```
+
+The hook runs `python -m tagging.tag_validator_cli` before every commit.
+
+---
+
 ## 8. CI/CD Flow (GitLab)
 
 Standard stage flow:

@@ -1,0 +1,7 @@
+#!/bin/sh
+cd api-tests || exit 1
+python -m tagging.tag_validator_cli
+if [ $? -ne 0 ]; then
+  echo "Tag validation failed. Fix tags before committing."
+  exit 1
+fi
