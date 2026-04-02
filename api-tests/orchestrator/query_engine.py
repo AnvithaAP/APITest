@@ -62,6 +62,22 @@ def parse_ui_selections(filters: dict[str, list[str]], group_operator: str = "AN
     return ParsedQuery(groups=[clauses])
 
 
+def parse_nested_ui_tree(tree: dict) -> ParsedQuery:
+    """Parse nested UI query tree to fully expressive query groups.
+
+    Example tree:
+      {"operator": "AND", "children": [
+          {"key": "scope", "values": ["api", "ui"]},
+          {"operator": "OR", "children": [
+              {"key": "intent", "values": ["functional"]},
+              {"key": "intent", "values": ["performance"]},
+          ]}
+      ]}
+    """
+    expression = _tree_to_expression(tree)
+    return parse_query(expression)
+
+
 
 def build_query_string(filters: dict[str, list[str]], group_operator: str = "AND", intra_field_operator: str = "OR") -> str:
     """Build a human-readable query string from structured filters.
@@ -201,3 +217,27 @@ def _cross_and(left: list[list[QueryClause]], right: list[list[QueryClause]]) ->
         for right_group in right:
             product.append(left_group + right_group)
     return product
+
+
+def _tree_to_expression(node: dict) -> str:
+    if not node:
+        return ""
+
+    if "key" in node:
+        key = str(node.get("key", "")).strip()
+        values = [str(v).strip() for v in node.get("values", []) if str(v).strip()]
+        if not key or not values:
+            return ""
+        if len(values) == 1:
+            return f"{key}={values[0]}"
+        joined = " OR ".join(f"{key}={value}" for value in values)
+        return f"({joined})"
+
+    operator = str(node.get("operator", "AND")).upper()
+    children = node.get("children", [])
+    rendered: list[str] = []
+    for child in children:
+        expr = _tree_to_expression(child)
+        if expr:
+            rendered.append(f"({expr})" if "children" in child and "key" not in child else expr)
+    return f" {operator} ".join(rendered)

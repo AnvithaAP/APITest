@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from orchestrator.query_engine import ParsedQuery, QueryClause, parse_query, parse_ui_selections
+from orchestrator.query_engine import ParsedQuery, QueryClause, parse_nested_ui_tree, parse_query, parse_ui_selections
 
 
 @dataclass(frozen=True)
@@ -34,8 +34,7 @@ class TagEngine:
         """
         if not tree:
             return ParsedQuery(groups=[])
-        expression = self._to_expression(tree)
-        return parse_query(expression)
+        return parse_nested_ui_tree(tree)
 
     def _to_expression(self, node: dict) -> str:
         operator = str(node.get("operator", "AND")).upper()

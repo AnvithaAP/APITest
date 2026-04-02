@@ -54,6 +54,7 @@ def _tag_query_ui() -> str:
     <code id='queryOut'></code>
   </div>
   <script>
+    const LIVE_METRICS_ENDPOINT = '/metrics';
     function buildTagQuery() {{
       const keys = {json.dumps(TAG_QUERY_FIELDS)};
       const operator = document.getElementById('tag-operator').value;
@@ -105,6 +106,8 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
     <div class='kpi'><b>Total Failed</b><br/>{kpis.get('total_failed', 0)}</div>
     <div class='kpi'><b>Pass Rate</b><br/>{kpis.get('pass_rate', 0)}</div>
     <div class='kpi'><b>Release Readiness</b><br/>{release.get('status', 'unknown')}</div>
+    <div class='kpi'><b>Error Rate</b><br/>{kpis.get('error_rate', 0)}</div>
+    <div class='kpi'><b>Throughput</b><br/>{kpis.get('throughput', 0)}</div>
   </div>
 
   {_tag_query_ui()}
@@ -119,6 +122,7 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
   </div>
 
   <script>
+    const LIVE_METRICS_ENDPOINT = '/metrics';
     const scopeData = {json.dumps(scope_breakdown)};
     new Chart(document.getElementById('scopeChart'), {{
       type: 'bar',
@@ -145,6 +149,25 @@ def build_dashboard_html(aggregated_payload: dict) -> str:
         {{ label: 'Failed Tests', data: failTrend, borderColor: '#d62728', tension: 0.2 }}
       ] }}
     }});
+
+    async function refreshLiveMetrics() {{
+      try {{
+        const response = await fetch(LIVE_METRICS_ENDPOINT);
+        if (!response.ok) return;
+        const payload = await response.json();
+        const kpi = payload.kpi?.summary || {{}};
+        const cards = document.querySelectorAll('.kpi');
+        if (cards.length >= 7) {{
+          cards[5].innerHTML = '<b>Error Rate</b><br/>' + (kpi.error_rate ?? 0);
+          cards[6].innerHTML = '<b>Throughput</b><br/>' + (kpi.throughput_tests_per_second ?? 0);
+        }}
+      }} catch (_) {{
+        // dashboard can render standalone without live backend
+      }}
+    }}
+
+    setInterval(refreshLiveMetrics, 5000);
+    refreshLiveMetrics();
   </script>
 </body>
 </html>
