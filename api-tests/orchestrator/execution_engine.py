@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from metrics.kpi_dashboard import generate_dashboard
 from orchestrator.query_engine import parse_query
 
 
 def _discover_tests(query: str) -> list[str]:
-    cmd = [sys.executable, "-m", "pytest", "functional", "performance", "governance", "--collect-only", "-q"]
+    cmd = [sys.executable, "-m", "pytest", "functional", "functional/features", "performance", "governance", "--collect-only", "-q"]
     if query:
         cmd.append(f"--tag-query={query}")
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -114,6 +115,12 @@ def run_execution_engine(
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    try:
+        generate_dashboard(report_path="artifacts/pytest_report.json")
+    except FileNotFoundError:
+        # Distributed/external runners may not produce local pytest report artifacts.
+        pass
 
     return 0 if all(node["rc"] == 0 for node in results) else 1
 

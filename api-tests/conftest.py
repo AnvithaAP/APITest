@@ -143,10 +143,18 @@ def _validate_atomic_tests(items: list[pytest.Item]) -> list[str]:
         )
         if fn is None:
             continue
-        assert_count = sum(1 for node in ast.walk(fn) if isinstance(node, ast.Assert))
-        if assert_count > 1:
+        assert_stmt_count = sum(1 for node in ast.walk(fn) if isinstance(node, ast.Assert))
+        assert_call_count = sum(
+            1
+            for node in ast.walk(fn)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and str(node.func.attr).startswith("assert")
+        )
+        total_assertions = assert_stmt_count + assert_call_count
+        if total_assertions > 1:
             violations.append(
-                f"{item.nodeid} has {assert_count} assertions; atomic policy allows 1 assertion per test"
+                f"{item.nodeid} has {total_assertions} assertion checks; atomic policy allows 1 assertion per test"
             )
     return violations
 

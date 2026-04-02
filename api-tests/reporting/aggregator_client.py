@@ -146,6 +146,8 @@ def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
     total_failed = summary.get("total_failed", 0)
     pass_rate = round(1 - (total_failed / max(total_tests, 1)), 4)
     failure_budget_used_pct = round((total_failed / max(total_tests, 1)) * 100, 2)
+    avg_error_rate = round(sum(item.get("error_rate", 0) for item in timeline) / max(len(timeline), 1), 5)
+    avg_throughput = round(sum(run.get("summary", {}).get("total", 0) for run in runs) / max(len(runs), 1), 3)
 
     return {
         "kpis": {
@@ -153,6 +155,8 @@ def _build_dashboard_payload(runs: list[dict], summary: dict) -> dict:
             "total_tests": total_tests,
             "total_failed": total_failed,
             "pass_rate": pass_rate,
+            "error_rate": avg_error_rate,
+            "throughput": avg_throughput,
         },
         "scope_breakdown": summary.get("scopes", {}),
         "timeline": timeline,
