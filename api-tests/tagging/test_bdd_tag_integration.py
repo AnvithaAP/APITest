@@ -13,7 +13,7 @@ class _FakeItem:
         return []
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=compliance", "module=platform", "release=R2026.04-S7")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S7")
 def test_extract_item_tags_infers_bdd_style_keywords() -> None:
     item = _FakeItem([
         "scope_api",

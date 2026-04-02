@@ -11,13 +11,13 @@ def test_build_query_string_from_structured_filters() -> None:
         {
             "scope": ["api"],
             "intent": ["functional"],
-            "concern": ["security"],
+            "concern": ["auth"],
             "type": ["regression"],
-            "module": ["billing"],
+            "module": ["platform"],
         },
         group_operator="AND",
     )
-    assert query == "scope=api AND intent=functional AND concern=security AND type=regression AND module=billing"
+    assert query == "scope=api AND intent=functional AND concern=auth AND type=regression AND module=platform"
 
 
 @pytest.mark.tag("scope=api", "intent=functional", "concern=auth", "type=smoke", "module=platform", "release=R2026.04-S7")

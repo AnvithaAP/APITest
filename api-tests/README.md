@@ -119,8 +119,15 @@ Governance entrypoints:
 
 ## Tag Rules
 
-- intent=functional → type ∈ [smoke, sanity, regression, system]
-- intent=performance → type ∈ [load, stress, spike, soak, benchmark]
+Core invariant:
+
+- `scope + intent -> allowed concerns + allowed types`
+
+The source of truth is `tagging/tag_model.py` and every test/query must satisfy that matrix.
+Examples:
+
+- `scope=ui + intent=functional` only allows concerns from `[visual, interaction, data, state, flow]` and types from `[smoke, sanity, regression, system]`
+- `scope=api + intent=performance` only allows concerns from `[latency, capacity, scalability, stability]` and types from `[load, stress, spike, soak, benchmark]`
 
 Invalid combinations will:
 
