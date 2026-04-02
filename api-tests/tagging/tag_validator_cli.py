@@ -13,7 +13,7 @@ from tagging.tag_governance import TagGovernance
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Strict intent/type and tag governance validator")
-    parser.add_argument("paths", nargs="*", default=["functional", "performance", "governance", "tagging", "orchestrator"])
+    parser.add_argument("paths", nargs="*", default=["functional", "performance", "governance", "tagging", "orchestrator", "tests"])
     args = parser.parse_args()
 
     roots = [Path(p) for p in args.paths if Path(p).exists()]
