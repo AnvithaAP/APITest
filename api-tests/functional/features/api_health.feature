@@ -1,9 +1,9 @@
-@scope:api
-@intent:functional
-@concern:behavior
-@type:smoke
-@module:platform
-@release:R2026.04-S1
+@scope_api
+@intent_functional
+@concern_data
+@type_regression
+@module_platform
+@release_R2026.04-S1
 Feature: API health and readiness
 
   Scenario: Readiness endpoint returns healthy payload

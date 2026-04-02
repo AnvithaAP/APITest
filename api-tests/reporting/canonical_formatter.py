@@ -55,7 +55,7 @@ def _first_value(values: list[str] | None, default: str) -> str:
     return values[0]
 
 
-def write_canonical_report(report: dict, output_path: str = "artifacts/canonical_run.json") -> Path:
+def write_canonical_report(report: dict, output_path: str = "reporting/output/canonical.json") -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2), encoding="utf-8")

@@ -199,3 +199,11 @@ def _closest_match(value: str, candidates: set[str], fallback: str) -> str:
         return value
     matches = difflib.get_close_matches(value, list(candidates), n=1, cutoff=0.5)
     return matches[0] if matches else fallback
+
+
+def enforce_atomic(tags: dict[str, str]) -> None:
+    concern = tags.get("concern")
+    if isinstance(concern, list):
+        raise ValueError("Test must have only ONE concern")
+    if isinstance(concern, str) and any(sep in concern for sep in [",", "|", ";"]):
+        raise ValueError("Test must have only ONE concern")
