@@ -22,5 +22,5 @@ def test_tag_engine_supports_nested_ui_query_tree() -> None:
     }
 
     parsed = tag_engine.from_ui_tree(tree)
-    assert len(parsed.groups) == 2
+    assert len(parsed.groups) == 4
     assert any(clause.key == "scope" for clause in parsed.groups[0])

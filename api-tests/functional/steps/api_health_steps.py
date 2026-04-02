@@ -23,12 +23,12 @@ def test_api_health_feature() -> None:
     pass
 
 
-@given("the readiness endpoint is reachable")
+@given("the readiness endpoint is reachable", target_fixture="readiness_endpoint")
 def readiness_endpoint() -> dict[str, str]:
     return {"status": "healthy"}
 
 
-@when("I request the readiness status")
+@when("I request the readiness status", target_fixture="request_status")
 def request_status(readiness_endpoint: dict[str, str]) -> dict[str, str]:
     return readiness_endpoint
 
