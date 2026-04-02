@@ -9,9 +9,8 @@ import pytest
 
 from reporting.cucumber_formatter import build_cucumber_report, write_cucumber_report
 from reporting.standardized_report import build_standardized_report, write_standardized_report
-from tagging.tag_config import INTENT_TYPE_MAP
 from tagging.tag_guard import TagGuard
-from tagging.tag_validator import validate_intent_type
+from tagging.tag_validator import validate_full_tag_model
 from tagging.tag_parser import matches_query, parse_query_groups, parse_tag_entries
 
 
@@ -67,17 +66,16 @@ _BDD_ALIAS_MAP = {
     "ui": "scope=ui",
     "e2e": "scope=e2e",
     "device": "scope=device",
+    "integration": "scope=integration",
     "functional": "intent=functional",
     "performance": "intent=performance",
-    "governance": "intent=governance",
-    "reliability": "intent=reliability",
     "smoke": "type=smoke",
     "sanity": "type=sanity",
     "regression": "type=regression",
     "system": "type=system",
     "load": "type=load",
-    "compliance": "type=compliance",
-    "standard": "type=standard",
+    "compliance": "type=system",
+    "standard": "type=system",
 }
 
 
@@ -124,7 +122,7 @@ def _extract_item_tags(item: pytest.Item) -> dict[str, str]:
 
 
 def extract_tags(item: pytest.Item) -> dict[str, str]:
-    tags: dict[str, str] = {}
+    tags = _extract_item_tags(item)
     for marker in item.iter_markers():
         if marker.name.startswith("scope_"):
             tags["scope"] = marker.name.split("_", 1)[1]
@@ -136,6 +134,8 @@ def extract_tags(item: pytest.Item) -> dict[str, str]:
             tags["concern"] = marker.name.split("_", 1)[1]
         elif marker.name.startswith("module_"):
             tags["module"] = marker.name.split("_", 1)[1]
+        elif marker.name.startswith("release_"):
+            tags["release"] = marker.name.split("_", 1)[1]
     return tags
 
 def _validate_atomic_tests(items: list[pytest.Item]) -> list[str]:
@@ -199,8 +199,8 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
     for item in items:
         try:
             extracted = extract_tags(item)
-            if extracted and extracted.get("intent") in INTENT_TYPE_MAP:
-                validate_intent_type(extracted)
+            if extracted:
+                validate_full_tag_model(extracted)
         except ValueError as exc:
             errors.append(f"{item.nodeid}: {exc}")
     errors.extend(_validate_atomic_tests(items))

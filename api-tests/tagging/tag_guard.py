@@ -7,7 +7,7 @@ import re
 import pytest
 
 from tagging.tag_parser import parse_tag_entries
-from tagging.tag_validator import suggest_autofix, validate_intent_type, validate_tags
+from tagging.tag_validator import suggest_autofix, validate_full_tag_model, validate_tags
 
 
 @dataclass
@@ -18,17 +18,15 @@ class AutoFixResult:
 
 
 def enforce(tags: dict[str, str]) -> None:
-    intent = (tags.get("intent") or "").strip().lower()
-    if intent not in {"functional", "performance"}:
-        return
     try:
-        validate_intent_type(tags)
+        validate_full_tag_model(tags)
     except ValueError as exc:
-        intent = tags.get("intent", "")
-        from tagging.tag_autofix import suggest_type
+        intent = (tags.get("intent") or "").strip().lower()
+        scope = (tags.get("scope") or "").strip().lower()
+        from tagging.tag_autofix import suggest
 
-        suggestions = suggest_type(intent)
-        hint = f" Suggestion: use one of {suggestions}" if suggestions else ""
+        suggestions = suggest(scope, intent)
+        hint = f" Suggestion: {suggestions}" if suggestions else ""
         raise ValueError(f"Tag guard strict enforcement failed: {exc}.{hint}") from exc
 
 

@@ -4,7 +4,8 @@ from dataclasses import dataclass
 import re
 
 from tagging.tag_config import INTENT_TYPE_MAP
-from tagging.tag_validator import validate_intent_type
+from tagging.tag_model import TAG_MODEL
+from tagging.tag_validator import validate_full_tag_model, validate_intent_type
 
 
 @dataclass(frozen=True)
@@ -136,13 +137,47 @@ def validate_query_intent_type(parsed: ParsedQuery) -> None:
     for group in parsed.groups:
         intents = next((clause.values for clause in group if clause.key == "intent"), [])
         types = next((clause.values for clause in group if clause.key == "type"), [])
+        scopes = next((clause.values for clause in group if clause.key == "scope"), [])
+        concerns = next((clause.values for clause in group if clause.key == "concern"), [])
         if not intents or not types:
+            # Allow partial queries but still validate complete tuple presence below.
+            pass
+        else:
+            for intent in intents:
+                if intent.lower() not in INTENT_TYPE_MAP:
+                    continue
+                for test_type in types:
+                    validate_intent_type({"intent": intent, "type": test_type})
+
+        if not scopes or not intents:
             continue
-        for intent in intents:
-            if intent.lower() not in INTENT_TYPE_MAP:
-                continue
-            for test_type in types:
-                validate_intent_type({"intent": intent, "type": test_type})
+        for scope in scopes:
+            for intent in intents:
+                scope_norm = scope.lower()
+                intent_norm = intent.lower()
+                if scope_norm not in TAG_MODEL:
+                    raise ValueError(f"Invalid scope: {scope_norm}")
+                if intent_norm not in TAG_MODEL[scope_norm]:
+                    raise ValueError(f"Invalid intent '{intent_norm}' for scope '{scope_norm}'")
+                allowed = TAG_MODEL[scope_norm][intent_norm]
+                for concern in concerns:
+                    if concern.lower() not in allowed["concerns"]:
+                        raise ValueError(
+                            f"Invalid concern '{concern}' for {scope_norm}+{intent_norm}. "
+                            f"Allowed: {sorted(allowed['concerns'])}"
+                        )
+                for type_ in types:
+                    if type_.lower() not in allowed["types"]:
+                        raise ValueError(
+                            f"Invalid type '{type_}' for {scope_norm}+{intent_norm}. "
+                            f"Allowed: {sorted(allowed['types'])}"
+                        )
+                if concerns and types:
+                    for concern in concerns:
+                        for type_ in types:
+                            validate_full_tag_model(
+                                {"scope": scope, "intent": intent, "concern": concern, "type": type_}
+                            )
 
 
 def flatten_query(parsed: ParsedQuery) -> dict[str, list[str]]:

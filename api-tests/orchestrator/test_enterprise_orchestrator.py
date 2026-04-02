@@ -9,7 +9,7 @@ from orchestrator.enterprise_orchestrator import _canonical_paths_from_results
 
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=traceability", "type=compliance", "module=platform", "release=R2026.04-S7")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S7")
 def test_canonical_paths_filters_existing_files(tmp_path: Path) -> None:
     good = tmp_path / "good.json"
     good.write_text("{}", encoding="utf-8")

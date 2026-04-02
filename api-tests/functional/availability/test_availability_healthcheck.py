@@ -8,7 +8,7 @@ from core.validators import validate_service_availability
 @pytest.mark.tag(
     "scope=api",
     "intent=functional",
-    "concern=availability",
+    "concern=behavior",
     "type=smoke",
     "module=platform",
     "release=R2026.04-S1",

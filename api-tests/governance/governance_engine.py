@@ -22,7 +22,7 @@ def validate_headers(headers: dict[str, str]) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Governance test engine")
-    parser.add_argument("--query", default="scope=api AND intent=governance")
+    parser.add_argument("--query", default="scope=api AND intent=functional")
     args = parser.parse_args()
 
     cmd = [

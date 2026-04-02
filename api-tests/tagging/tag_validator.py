@@ -5,25 +5,16 @@ import difflib
 import re
 
 from tagging.tag_config import INTENT_TYPE_MAP, REQUIRED_TAGS
+from tagging.tag_model import TAG_MODEL
 
 REQUIRED_KEYS = REQUIRED_TAGS | {"release"}
-ALLOWED_SCOPE = {"api", "ui", "e2e", "device"}
-ALLOWED_INTENT = {"functional", "performance", "security", "reliability", "governance"}
-
+ALLOWED_SCOPE = set(TAG_MODEL)
+ALLOWED_INTENT = {"functional", "performance"}
 CONCERN_BY_INTENT = {
-    "functional": {"contract", "data", "behavior", "error", "auth", "availability", "headers"},
-    "performance": {"latency", "capacity", "scalability", "stability"},
-    "security": {"authn", "authz", "injection", "secrets", "transport"},
-    "reliability": {"resilience", "timeouts", "retry", "chaos", "recovery"},
-    "governance": {"headers", "conventions", "standards", "traceability"},
+    intent: {concern for scope in TAG_MODEL.values() for concern in scope[intent]["concerns"]}
+    for intent in ALLOWED_INTENT
 }
-
-TYPE_BY_INTENT = {
-    **INTENT_TYPE_MAP,
-    "security": {"smoke", "regression", "compliance"},
-    "reliability": {"resilience", "recovery", "failover"},
-    "governance": {"compliance", "policy", "standard"},
-}
+TYPE_BY_INTENT = INTENT_TYPE_MAP
 
 ALLOWED_MODULES = {
     "users",
@@ -64,6 +55,36 @@ def validate_intent_type(tags: dict[str, str]) -> None:
         raise ValueError(
             f"Invalid type '{type_}' for intent '{intent}'. "
             f"Allowed types: {sorted(allowed_types)}"
+        )
+
+
+def validate_full_tag_model(tags: dict[str, str]) -> None:
+    scope = normalize_tag_value(tags.get("scope", ""))
+    intent = normalize_tag_value(tags.get("intent", ""))
+    concern = normalize_tag_value(tags.get("concern", ""))
+    type_ = normalize_tag_value(tags.get("type", ""))
+
+    if not scope or not intent or not concern or not type_:
+        raise ValueError("Missing required tags")
+
+    if scope not in TAG_MODEL:
+        raise ValueError(f"Invalid scope: {scope}")
+
+    if intent not in TAG_MODEL[scope]:
+        raise ValueError(f"Invalid intent '{intent}' for scope '{scope}'")
+
+    allowed = TAG_MODEL[scope][intent]
+
+    if concern not in allowed["concerns"]:
+        raise ValueError(
+            f"Invalid concern '{concern}' for {scope}+{intent}. "
+            f"Allowed: {sorted(allowed['concerns'])}"
+        )
+
+    if type_ not in allowed["types"]:
+        raise ValueError(
+            f"Invalid type '{type_}' for {scope}+{intent}. "
+            f"Allowed: {sorted(allowed['types'])}"
         )
 
 
@@ -120,6 +141,10 @@ def validate_tags(tags: dict[str, str]) -> ValidationResult:
         except ValueError as exc:
             errors.append(str(exc))
             suggestions.append(f"allowed types for intent={strict_intent}: {sorted(INTENT_TYPE_MAP[strict_intent])}")
+    try:
+        validate_full_tag_model(normalized)
+    except ValueError as exc:
+        errors.append(str(exc))
 
     module = normalized.get("module")
     if module and module not in ALLOWED_MODULES:

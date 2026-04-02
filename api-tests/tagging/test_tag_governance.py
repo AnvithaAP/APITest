@@ -7,7 +7,7 @@ import pytest
 from tagging.tag_governance import TagGovernance
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=compliance", "module=platform", "release=R2026.04-S1")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S1")
 def test_feature_file_requires_key_value_tags(tmp_path: Path) -> None:
     feature = tmp_path / "bad.feature"
     feature.write_text("@scope\nFeature: sample\n", encoding="utf-8")
@@ -18,7 +18,7 @@ def test_feature_file_requires_key_value_tags(tmp_path: Path) -> None:
     assert any("key:value" in issue.message for issue in report.issues)
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=compliance", "module=platform", "release=R2026.04-S1")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S1")
 def test_pytest_file_with_required_tags_passes(tmp_path: Path) -> None:
     test_file = tmp_path / "test_sample.py"
     test_file.write_text(
@@ -45,7 +45,7 @@ def test_pytest_file_with_required_tags_passes(tmp_path: Path) -> None:
     assert report.ok
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=compliance", "module=platform", "release=R2026.04-S1")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S1")
 def test_feature_file_enforces_intent_to_type_governance_rules(tmp_path: Path) -> None:
     feature = tmp_path / "api_health.feature"
     feature.write_text(

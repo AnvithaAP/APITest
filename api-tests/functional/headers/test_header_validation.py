@@ -8,7 +8,7 @@ from core.validators import validate_header_value, validate_required_headers
 @pytest.mark.tag(
     "scope=api",
     "intent=functional",
-    "concern=headers",
+    "concern=contract",
     "type=regression",
     "module=platform",
     "release=R2026.04-S1",

@@ -6,7 +6,7 @@ from dashboard.dashboard import build_dashboard_html
 
 
 
-@pytest.mark.tag("scope=ui", "intent=governance", "concern=traceability", "type=compliance", "module=platform", "release=R2026.04-S7")
+@pytest.mark.tag("scope=ui", "intent=functional", "concern=flow", "type=system", "module=platform", "release=R2026.04-S7")
 def test_dashboard_contains_chartjs_trend_sections() -> None:
     payload = {
         "dashboard": {
@@ -25,7 +25,7 @@ def test_dashboard_contains_chartjs_trend_sections() -> None:
     assert "Release Readiness" in html
 
 
-@pytest.mark.tag("scope=ui", "intent=functional", "concern=auth", "type=smoke", "module=platform", "release=R2026.04-S7")
+@pytest.mark.tag("scope=ui", "intent=functional", "concern=interaction", "type=smoke", "module=platform", "release=R2026.04-S7")
 def test_dashboard_contains_tag_query_builder_fields() -> None:
     html = build_dashboard_html({"dashboard": {}})
     for field in ["scope", "intent", "concern", "type", "module"]:

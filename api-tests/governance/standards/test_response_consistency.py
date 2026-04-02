@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.mark.tag("scope=api", "intent=governance", "concern=standards", "type=standard", "module=platform", "release=R2026.04-S7")
+@pytest.mark.tag("scope=api", "intent=functional", "concern=contract", "type=system", "module=platform", "release=R2026.04-S7")
 def test_response_envelope_consistency():
     response = {"meta": {"trace_id": "abc"}, "data": {"id": 1}}
     assert set(response.keys()) == {"meta", "data"}
