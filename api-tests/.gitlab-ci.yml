@@ -11,6 +11,12 @@ before_script:
   - python --version
   - pip install -r requirements.txt
 
+
+validate-tags:
+  stage: validate
+  script:
+    - python -m tagging.tag_validator_cli
+
 validate_governance:
   stage: validate
   script:

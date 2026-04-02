@@ -4,7 +4,9 @@ from dataclasses import dataclass
 import difflib
 import re
 
-REQUIRED_KEYS = {"scope", "intent", "concern", "type", "module", "release"}
+from tagging.tag_config import INTENT_TYPE_MAP, REQUIRED_TAGS
+
+REQUIRED_KEYS = REQUIRED_TAGS | {"release"}
 ALLOWED_SCOPE = {"api", "ui", "e2e", "device"}
 ALLOWED_INTENT = {"functional", "performance", "security", "reliability", "governance"}
 
@@ -17,8 +19,7 @@ CONCERN_BY_INTENT = {
 }
 
 TYPE_BY_INTENT = {
-    "functional": {"smoke", "sanity", "regression", "system"},
-    "performance": {"load", "stress", "spike", "soak", "benchmark"},
+    **INTENT_TYPE_MAP,
     "security": {"smoke", "regression", "compliance"},
     "reliability": {"resilience", "recovery", "failover"},
     "governance": {"compliance", "policy", "standard"},
@@ -46,6 +47,24 @@ class ValidationResult:
 
 def normalize_tag_value(value: str) -> str:
     return re.sub(r"[_\s]+", "-", (value or "").strip().lower())
+
+
+def validate_intent_type(tags: dict[str, str]) -> None:
+    intent = normalize_tag_value(tags.get("intent", ""))
+    type_ = normalize_tag_value(tags.get("type", ""))
+
+    if not intent or not type_:
+        raise ValueError("Missing intent or type tag")
+
+    allowed_types = INTENT_TYPE_MAP.get(intent)
+    if not allowed_types:
+        raise ValueError(f"Invalid intent: {intent}")
+
+    if type_ not in allowed_types:
+        raise ValueError(
+            f"Invalid type '{type_}' for intent '{intent}'. "
+            f"Allowed types: {sorted(allowed_types)}"
+        )
 
 
 def validate_tags(tags: dict[str, str]) -> ValidationResult:
@@ -93,6 +112,14 @@ def validate_tags(tags: dict[str, str]) -> ValidationResult:
         if test_type and test_type not in allowed_types:
             errors.append(f"{intent} type must be one of {sorted(allowed_types)}")
             suggestions.append(f"type suggestion: {_closest_match(test_type, allowed_types, sorted(allowed_types)[0])}")
+
+    strict_intent = normalized.get("intent")
+    if strict_intent in INTENT_TYPE_MAP:
+        try:
+            validate_intent_type(normalized)
+        except ValueError as exc:
+            errors.append(str(exc))
+            suggestions.append(f"allowed types for intent={strict_intent}: {sorted(INTENT_TYPE_MAP[strict_intent])}")
 
     module = normalized.get("module")
     if module and module not in ALLOWED_MODULES:

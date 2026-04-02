@@ -8,7 +8,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tagging.tag_config import INTENT_TYPE_MAP
 from tagging.tag_guard import autofix_file
+
+
+def suggest_type(intent: str) -> list[str]:
+    return sorted(INTENT_TYPE_MAP.get((intent or "").strip().lower(), []))
 
 
 def main() -> int:

@@ -7,7 +7,7 @@ import re
 import pytest
 
 from tagging.tag_parser import parse_tag_entries
-from tagging.tag_validator import suggest_autofix, validate_tags
+from tagging.tag_validator import suggest_autofix, validate_intent_type, validate_tags
 
 
 @dataclass
@@ -15,6 +15,21 @@ class AutoFixResult:
     file_path: str
     changed: bool
     reason: str
+
+
+def enforce(tags: dict[str, str]) -> None:
+    intent = (tags.get("intent") or "").strip().lower()
+    if intent not in {"functional", "performance"}:
+        return
+    try:
+        validate_intent_type(tags)
+    except ValueError as exc:
+        intent = tags.get("intent", "")
+        from tagging.tag_autofix import suggest_type
+
+        suggestions = suggest_type(intent)
+        hint = f" Suggestion: use one of {suggestions}" if suggestions else ""
+        raise ValueError(f"Tag guard strict enforcement failed: {exc}.{hint}") from exc
 
 
 class TagGuard:
@@ -33,6 +48,12 @@ class TagGuard:
             tags, parse_errors = parse_tag_entries(tuple(tag_marks[0].args))
             if parse_errors:
                 errors.append(f"{item.nodeid}: {', '.join(parse_errors)}")
+                continue
+
+            try:
+                enforce(tags)
+            except ValueError as exc:
+                errors.append(f"{item.nodeid}: {exc}")
                 continue
 
             validation = validate_tags(tags)

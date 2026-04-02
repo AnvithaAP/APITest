@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from orchestrator.query_engine import ParsedQuery, flatten_query, matches_query as evaluate_query
+from tagging.tag_config import INTENT_TYPE_MAP
 from tagging.tag_engine import tag_engine
-from tagging.tag_validator import normalize_tag_value
+from tagging.tag_validator import normalize_tag_value, validate_intent_type
 
 
 def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[str]]:
@@ -19,6 +20,11 @@ def parse_tag_entries(entries: tuple[str, ...]) -> tuple[dict[str, str], list[st
             errors.append(f"duplicate tag key '{key}'")
             continue
         tags[key] = value
+    if not errors and {"intent", "type"}.issubset(tags) and tags.get("intent") in INTENT_TYPE_MAP:
+        try:
+            validate_intent_type(tags)
+        except ValueError as exc:
+            errors.append(str(exc))
     return tags, errors
 
 

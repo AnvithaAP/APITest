@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
+from tagging.tag_config import INTENT_TYPE_MAP
+from tagging.tag_validator import validate_intent_type
+
 
 @dataclass(frozen=True)
 class QueryClause:
@@ -38,7 +41,9 @@ def parse_query(query: str) -> ParsedQuery:
     groups, idx = _parse_expression(tokens, 0)
     if idx != len(tokens):
         raise ValueError(f"Unexpected token '{tokens[idx]}'")
-    return ParsedQuery(groups=groups)
+    parsed = ParsedQuery(groups=groups)
+    validate_query_intent_type(parsed)
+    return parsed
 
 
 def parse_ui_selections(filters: dict[str, list[str]], group_operator: str = "AND") -> ParsedQuery:
@@ -56,10 +61,14 @@ def parse_ui_selections(filters: dict[str, list[str]], group_operator: str = "AN
         for key, values in normalized.items():
             for value in values:
                 groups.append([QueryClause(key=key, values=[value])])
-        return ParsedQuery(groups=groups)
+        parsed = ParsedQuery(groups=groups)
+        validate_query_intent_type(parsed)
+        return parsed
 
     clauses = [QueryClause(key=key, values=values) for key, values in normalized.items()]
-    return ParsedQuery(groups=[clauses])
+    parsed = ParsedQuery(groups=[clauses])
+    validate_query_intent_type(parsed)
+    return parsed
 
 
 def parse_nested_ui_tree(tree: dict) -> ParsedQuery:
@@ -121,6 +130,19 @@ def build_query_from_tags(filters: dict[str, list[str]], default_all: bool = Tru
             clauses.append(f"({nested})")
 
     return " AND ".join(clauses)
+
+
+def validate_query_intent_type(parsed: ParsedQuery) -> None:
+    for group in parsed.groups:
+        intents = next((clause.values for clause in group if clause.key == "intent"), [])
+        types = next((clause.values for clause in group if clause.key == "type"), [])
+        if not intents or not types:
+            continue
+        for intent in intents:
+            if intent.lower() not in INTENT_TYPE_MAP:
+                continue
+            for test_type in types:
+                validate_intent_type({"intent": intent, "type": test_type})
 
 
 def flatten_query(parsed: ParsedQuery) -> dict[str, list[str]]:

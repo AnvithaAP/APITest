@@ -116,6 +116,20 @@ Governance entrypoints:
 
 ---
 
+
+## Tag Rules
+
+- intent=functional → type ∈ [smoke, sanity, regression, system]
+- intent=performance → type ∈ [load, stress, spike, soak, benchmark]
+
+Invalid combinations will:
+
+- fail locally
+- fail CI
+- block execution
+
+---
+
 ## 5. Centralized Config-Driven Architecture (Critical)
 
 ### Frequently changing values: `config/runtime.env`

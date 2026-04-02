@@ -9,7 +9,9 @@ import pytest
 
 from reporting.cucumber_formatter import build_cucumber_report, write_cucumber_report
 from reporting.standardized_report import build_standardized_report, write_standardized_report
+from tagging.tag_config import INTENT_TYPE_MAP
 from tagging.tag_guard import TagGuard
+from tagging.tag_validator import validate_intent_type
 from tagging.tag_parser import matches_query, parse_query_groups, parse_tag_entries
 
 
@@ -119,6 +121,23 @@ def _extract_item_tags(item: pytest.Item) -> dict[str, str]:
     return _infer_tags_from_keywords(item)
 
 
+
+
+def extract_tags(item: pytest.Item) -> dict[str, str]:
+    tags: dict[str, str] = {}
+    for marker in item.iter_markers():
+        if marker.name.startswith("scope_"):
+            tags["scope"] = marker.name.split("_", 1)[1]
+        elif marker.name.startswith("intent_"):
+            tags["intent"] = marker.name.split("_", 1)[1]
+        elif marker.name.startswith("type_"):
+            tags["type"] = marker.name.split("_", 1)[1]
+        elif marker.name.startswith("concern_"):
+            tags["concern"] = marker.name.split("_", 1)[1]
+        elif marker.name.startswith("module_"):
+            tags["module"] = marker.name.split("_", 1)[1]
+    return tags
+
 def _validate_atomic_tests(items: list[pytest.Item]) -> list[str]:
     violations: list[str] = []
     for item in items:
@@ -177,6 +196,13 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
 
     guard = TagGuard()
     errors = guard.validate_pytest_items(items)
+    for item in items:
+        try:
+            extracted = extract_tags(item)
+            if extracted and extracted.get("intent") in INTENT_TYPE_MAP:
+                validate_intent_type(extracted)
+        except ValueError as exc:
+            errors.append(f"{item.nodeid}: {exc}")
     errors.extend(_validate_atomic_tests(items))
     if errors:
         formatted = "\n".join(f"- {e}" for e in errors)
