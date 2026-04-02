@@ -259,6 +259,11 @@ def _parse_factor(tokens: list[str], idx: int) -> tuple[list[list[QueryClause]],
 
 
 def _parse_clause(token: str) -> QueryClause:
+    token = token.strip().lstrip("@")
+    if "=" not in token and "_" in token:
+        prefix, value = token.split("_", 1)
+        if prefix in {"scope", "intent", "concern", "type", "module", "release"} and value:
+            token = f"{prefix}={value}"
     if "=" not in token:
         raise ValueError(f"Invalid query token '{token}', expected key=value")
     key, raw_values = [part.strip() for part in token.split("=", 1)]

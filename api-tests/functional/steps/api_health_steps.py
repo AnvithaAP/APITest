@@ -13,8 +13,8 @@ when = pytest_bdd.when
 @pytest.mark.tag(
     "scope=api",
     "intent=functional",
-    "concern=behavior",
-    "type=smoke",
+    "concern=data",
+    "type=regression",
     "module=platform",
     "release=R2026.04-S1",
 )
@@ -41,8 +41,8 @@ def should_be_healthy(request_status: dict[str, str]) -> None:
 @pytest.mark.tag(
     "scope=api",
     "intent=functional",
-    "concern=behavior",
-    "type=smoke",
+    "concern=data",
+    "type=regression",
     "module=platform",
     "release=R2026.04-S1",
 )

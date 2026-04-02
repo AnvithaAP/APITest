@@ -7,7 +7,9 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from history.sqlite_manager import SQLiteManager
+from metrics.kpi_engine import calculate_kpis
 from orchestrator.query_engine import parse_nested_ui_tree, parse_ui_selections
+from reporting.aggregator import aggregate_all
 
 
 class TagQueryRequest(BaseModel):
@@ -33,6 +35,18 @@ def _safe_load_json(path: str) -> dict:
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
+
+
+
+
+@app.get("/results")
+def get_results() -> dict:
+    return aggregate_all()
+
+
+@app.get("/kpi")
+def get_kpi() -> dict:
+    return calculate_kpis(aggregate_all())
 
 
 @app.get("/metrics")

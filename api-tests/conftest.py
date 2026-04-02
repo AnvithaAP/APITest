@@ -10,7 +10,7 @@ import pytest
 from reporting.cucumber_formatter import build_cucumber_report, write_cucumber_report
 from reporting.standardized_report import build_standardized_report, write_standardized_report
 from tagging.tag_guard import TagGuard
-from tagging.tag_validator import validate_full_tag_model
+from tagging.tag_validator import enforce_atomic, validate_full_tag_model
 from tagging.tag_parser import matches_query, parse_query_groups, parse_tag_entries
 
 
@@ -200,6 +200,7 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
         try:
             extracted = extract_tags(item)
             if extracted:
+                enforce_atomic(extracted)
                 validate_full_tag_model(extracted)
         except ValueError as exc:
             errors.append(f"{item.nodeid}: {exc}")

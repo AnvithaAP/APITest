@@ -57,7 +57,11 @@ def main() -> int:
     canonical = build_canonical_report(raw, args.query, query_tags, source_repo=args.repo, repo_type=args.repo_type, metadata=metadata)
     cucumber = build_cucumber_report(raw)
 
-    write_canonical_report(canonical)
+    for result in canonical.get("results", []):
+        duration = float(result.get("duration", 0) or 0)
+        result["metrics"] = {"latency": duration, "error": result.get("status") == "failed"}
+
+    write_canonical_report(canonical, output_path="reporting/output/canonical.json")
     write_cucumber_report(cucumber)
     write_standardized_report(build_standardized_report(canonical, cucumber))
     write_allure_results(canonical)

@@ -11,7 +11,6 @@
       .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
       .kpi { border: 1px solid #334155; border-radius: 10px; padding: 10px; background: #111827; }
       canvas { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 12px; }
-      code { color: #93c5fd; }
     </style>
   </head>
   <body>
@@ -21,11 +20,11 @@
       <div class="kpi"><b>Pass Rate</b><div id="passRate">-</div></div>
       <div class="kpi"><b>Error Rate</b><div id="errorRate">-</div></div>
       <div class="kpi"><b>Throughput</b><div id="throughput">-</div></div>
-      <div class="kpi"><b>Release</b><div id="releaseState">-</div></div>
+      <div class="kpi"><b>Total Tests</b><div id="totalTests">-</div></div>
     </div>
     <div class="grid">
       <canvas id="latencyChart"></canvas>
-      <canvas id="throughputChart"></canvas>
+      <canvas id="statusChart"></canvas>
     </div>
 
     <script>
@@ -33,44 +32,45 @@
 
       const latencyChart = new Chart(document.getElementById('latencyChart'), {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'Latency avg (ms)', data: [], borderColor: '#60a5fa' }] },
+        data: { labels: [], datasets: [{ label: 'Latency (ms)', data: [], borderColor: '#60a5fa' }] },
         options: { responsive: true }
       });
 
-      const throughputChart = new Chart(document.getElementById('throughputChart'), {
+      const statusChart = new Chart(document.getElementById('statusChart'), {
         type: 'bar',
-        data: { labels: [], datasets: [{ label: 'Throughput avg', data: [], backgroundColor: '#34d399' }] },
+        data: { labels: ['Passed', 'Failed'], datasets: [{ label: 'Result count', data: [0, 0], backgroundColor: ['#34d399', '#f87171'] }] },
         options: { responsive: true }
       });
 
-      async function pullMetrics() {
-        const response = await fetch(`${apiBase}/metrics`);
+      async function pullJson(path) {
+        const response = await fetch(`${apiBase}${path}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
       }
 
       async function refresh() {
         try {
-          const payload = await pullMetrics();
-          const points = payload.timeline || [];
+          const [resultsPayload, kpiPayload] = await Promise.all([
+            pullJson('/results'),
+            pullJson('/kpi')
+          ]);
 
-          const labels = points.map(p => p.timestamp);
-          latencyChart.data.labels = labels;
-          latencyChart.data.datasets[0].data = points.map(p => p.latency_avg_ms || 0);
+          const results = resultsPayload.results || [];
+          const passed = results.filter(r => r.status === 'passed').length;
+          const failed = results.filter(r => r.status === 'failed').length;
+
+          latencyChart.data.labels = results.map(r => r.test_name || r.run_id || 'test');
+          latencyChart.data.datasets[0].data = kpiPayload.latency_trend || [];
           latencyChart.update();
 
-          throughputChart.data.labels = labels;
-          throughputChart.data.datasets[0].data = points.map(p => p.throughput_avg || 0);
-          throughputChart.update();
+          statusChart.data.datasets[0].data = [passed, failed];
+          statusChart.update();
 
-          const summary = (payload.kpi && payload.kpi.summary) || {};
-          const release = (((payload.aggregated || {}).release_readiness) || {}).status || 'unknown';
-          document.getElementById('passRate').textContent = `${summary.pass_rate || 0}%`;
-          document.getElementById('errorRate').textContent = `${((summary.error_rate || 0) * 100).toFixed(2)}%`;
-          document.getElementById('throughput').textContent = `${summary.throughput_tests_per_second || 0} t/s`;
-          document.getElementById('releaseState').textContent = release;
-
-          document.getElementById('status').textContent = `Live data bound. Samples: ${points.length}. Repo cards: ${((payload.aggregated || {}).repo_cards || []).length}`;
+          document.getElementById('passRate').textContent = `${((kpiPayload.pass_rate || 0) * 100).toFixed(2)}%`;
+          document.getElementById('errorRate').textContent = `${((kpiPayload.error_rate || 0) * 100).toFixed(2)}%`;
+          document.getElementById('throughput').textContent = `${kpiPayload.throughput || 0} tests/s`;
+          document.getElementById('totalTests').textContent = `${kpiPayload.total_tests || 0}`;
+          document.getElementById('status').textContent = `LIVE pipeline active: ${resultsPayload.summary?.total_runs || 0} runs aggregated`;
         } catch (err) {
           document.getElementById('status').textContent = `Failed to load metrics: ${err.message}`;
         }
